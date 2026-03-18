@@ -1,92 +1,92 @@
 [center][size=6][b][color=#ffff00]Simple Time-lapse[/color][/b][/size]
-[size=1]Time-lapse, Timelapse, Time Lapse? Nobody knows![/size]
-[i]Create stunning time-lapse scenes of Night City with a single button press.[/i]
-
-[size=4][b]Check out the Videos tab for examples![/b][/size][/center]
-[line]
-[size=3]Simple Time-lapse gives you control over the flow of time in Night City.
-
-It handles all the setup for cinematic recording automatically: hiding the HUD, locking your position, disabling head-bob, and then restoring everything exactly how it was when you're done.[/size]
-
-[color=#ffff00][b]New in v1.3.0: Traffic & Scene Control[/b][/color]
-You now have full control over what moves (or doesn't) during a time-lapse:
-[list][*][b]Disable Air Traffic[/b] — Removes flying AVs from the scene. Great for clean skyline shots.
-[*][b]Disable Crowds & Traffic[/b] — Clears out all pedestrians and street vehicles for empty city vibes.
-[*][b]Traffic Frenzy (Experimental)[/b] — Speeds up ambient traffic to match your time-lapse speed. Works around the engine's vehicle time dilation limitation by injecting AI drive commands with scaled speeds. Also applies collision recovery and safety overrides to keep traffic flowing. Expect some jank, but the results can look great.
-[/list]
-[color=#ffff00][b]v1.2.0: Clock Mode[/b][/color]
-Speed up the day/night cycle [i]without[/i] speeding up the city. Watch the sun set and the neon lights turn on while traffic and crowds move at their normal pace. A completely different vibe compared to the frantic energy of simulation mode.
-
-[line]
-[size=5][b][color=#ffff00]Features[/color][/b][/size]
-
-[list]
-[*][b]Two Time-lapse Modes:[/b]
-[list]
-[*][b]Simulation Mode:[/b] Speed up everything (0.5x to 10x). Best for busy city intersections and flowing traffic.
-[*][b]Clock Mode:[/b] Speed up only the sky and lighting (up to 1000x). Best for atmospheric transition shots.
-[/list][*][b]Smart HUD Control:[/b] Automatically hides the UI during recording and restores your specific settings afterwards.
-[*][b]Steady Camera:[/b] Locks player movement and camera rotation for a perfectly stable tripod shot.
-[*][b]Precision Control:[/b] 
-[list]
-[*]Input exact speed values (e.g. 60x for 1 hour/minute).
-[*]Set specific durations or run infinitely.
-[*]"Jump to Time" lets you skip straight to golden hour before rolling.
-[/list][*] [b]Safety First:[/b]
-[list]
-[*]Won't start if you're in combat.
-[*]Prevents physics exploding by clamping speeds when switching modes.
-[*]Manual "Unlock" buttons in the debug tab if you ever get stuck.
-[/list][*][b]Scene Control (New in v1.3.0):[/b]
-[list]
-[*]Disable flying AVs for clean skylines.
-[*]Disable all crowds and traffic for empty city shots.
-[*]Traffic Frenzy mode to speed up vehicles with adjustable multiplier.
-[/list][/list]
-[line]
-[size=5][b][color=#ffff00]How to Use[/color][/b][/size]
-
-[list=1]
-[*]Open the [b]Cyber Engine Tweaks[/b] overlay.
-[*]Bind a hotkey for [b]"Start/Stop Time-lapse"[/b].
-[*](Optional) Bind a hotkey for [b]"Toggle HUD"[/b] for quick screenshots.
-[*]In the mod window, pick your settings:
-[list]
-[*][b]Mode:[/b] Simulation or Clock.
-[*][b]Speed:[/b] How fast you want time to pass.
-[*][b]Duration:[/b] How long to record for.
-[/list]
-[*]Close the overlay, frame your shot, and hit the hotkey.
-[/list][center][youtube]DklQ6SAhm10[/youtube][/center]
-[line]
-[size=5][b][color=#ffff00]Compatibility[/color][/b][/size]
-
-Works with:
-[list][*][b][url=https://www.nexusmods.com/cyberpunk2077/mods/12369]Balanced Nighttime Cycle[/url][/b] (Respects new cycle timings)
-[*][b][url=https://www.nexusmods.com/cyberpunk2077/mods/18027]Weather Switcher[/url][/b] (Great for locking weather before a shot)
-[*][b][url=https://www.nexusmods.com/cyberpunk2077/mods/12490]Nova City 2[/url][/b]
-[/list]
-[line]
-[size=5][b][color=#ffff00]Known issues[/color][/b][/size]
-
-[list][*]Vehicles are hard-coded to ignore time dilation in the physics engine. In simulation mode, nearby vehicles will run at the default speed (1x) unless Traffic Frenzy is enabled.
-[*]Traffic Frenzy is experimental. Cars may corner aggressively, briefly stop, or behave unusually at higher multipliers.
-[/list]
-[line]
-[size=5][b][color=#ffff00]Installation[/color][/b][/size]
-
-[list=1]
-[*] Install [url=https://www.nexusmods.com/cyberpunk2077/mods/107]Cyber Engine Tweaks[/url].
-[*]Download and install with a mod manager or
-[*] Download and extract the zip file.
-[*] Drop the [b]bin[/b] folder into your Cyberpunk 2077 directory.
-[font=Courier New]Cyberpunk 2077\bin\x64\plugins\cyber_engine_tweaks\mods\simple_timelapse\[/font]
-[/list]
-[line]
-[size=5][b][color=#ffff00]Credits[/color][/b][/size]
-
-[list]
-[*] [b]Mokuppo[/b] for the HUD toggling logic used in [url=https://www.nexusmods.com/cyberpunk2077/mods/9311]SimpleToggleHUD[/url]. Used with permission.
-[*] [b]psiberx[/b] for the [url=https://github.com/psiberx/cp2077-cet-kit]CP2077 CET Kit[/url]
-[*] [b]Yamashi[/b] and the CET Team.
-[/list]
+<br />[size=1]Time-lapse, Timelapse, Time Lapse? Nobody knows![/size]
+<br />[i]Create stunning time-lapse scenes of Night City with a single button press.[/i]
+<br />
+<br />[size=4][b]Check out the Videos tab for examples![/b][/size][/center]
+<br />[line]
+<br />[size=3]Simple Time-lapse gives you control over the flow of time in Night City.
+<br />
+<br />It handles all the setup for cinematic recording automatically: hiding the HUD, locking your position, disabling head-bob, and then restoring everything exactly how it was when you're done.[/size]
+<br />
+<br />[color=#ffff00][b]New in v1.3.0: Traffic &amp; Scene Control[/b][/color]
+<br />You now have full control over what moves (or doesn't) during a time-lapse:
+<br />[list][*][b]Disable Air Traffic[/b] — Removes flying AVs from the scene. Great for clean skyline shots.
+<br />[*][b]Disable Crowds &amp; Traffic[/b] — Clears out all pedestrians and street vehicles for empty city vibes.
+<br />[*][b]Traffic Frenzy (Experimental)[/b] — Speeds up ambient traffic to match your time-lapse speed. Works around the engine's vehicle time dilation limitation by injecting AI drive commands with scaled speeds. Also applies collision recovery and safety overrides to keep traffic flowing. Expect some jank, but the results can look great.
+<br />[/list]
+<br />[color=#ffff00][b]v1.2.0: Clock Mode[/b][/color]
+<br />Speed up the day/night cycle [i]without[/i] speeding up the city. Watch the sun set and the neon lights turn on while traffic and crowds move at their normal pace. A completely different vibe compared to the frantic energy of simulation mode.
+<br />
+<br />[line]
+<br />[size=5][b][color=#ffff00]Features[/color][/b][/size]
+<br />
+<br />[list]
+<br />[*][b]Two Time-lapse Modes:[/b]
+<br />[list]
+<br />[*][b]Simulation Mode:[/b] Speed up everything (0.5x to 10x). Best for busy city intersections and flowing traffic.
+<br />[*][b]Clock Mode:[/b] Speed up only the sky and lighting (up to 1000x). Best for atmospheric transition shots.
+<br />[/list][*][b]Smart HUD Control:[/b] Automatically hides the UI during recording and restores your specific settings afterwards.
+<br />[*][b]Steady Camera:[/b] Locks player movement and camera rotation for a perfectly stable tripod shot.
+<br />[*][b]Precision Control:[/b] 
+<br />[list]
+<br />[*]Input exact speed values (e.g. 60x for 1 hour/minute).
+<br />[*]Set specific durations or run infinitely.
+<br />[*]"Jump to Time" lets you skip straight to golden hour before rolling.
+<br />[/list][*] [b]Safety First:[/b]
+<br />[list]
+<br />[*]Won't start if you're in combat.
+<br />[*]Prevents physics exploding by clamping speeds when switching modes.
+<br />[*]Manual "Unlock" buttons in the debug tab if you ever get stuck.
+<br />[/list][*][b]Scene Control (New in v1.3.0):[/b]
+<br />[list]
+<br />[*]Disable flying AVs for clean skylines.
+<br />[*]Disable all crowds and traffic for empty city shots.
+<br />[*]Traffic Frenzy mode to speed up vehicles with adjustable multiplier.
+<br />[/list][/list]
+<br />[line]
+<br />[size=5][b][color=#ffff00]How to Use[/color][/b][/size]
+<br />
+<br />[list=1]
+<br />[*]Open the [b]Cyber Engine Tweaks[/b] overlay.
+<br />[*]Bind a hotkey for [b]"Start/Stop Time-lapse"[/b].
+<br />[*](Optional) Bind a hotkey for [b]"Toggle HUD"[/b] for quick screenshots.
+<br />[*]In the mod window, pick your settings:
+<br />[list]
+<br />[*][b]Mode:[/b] Simulation or Clock.
+<br />[*][b]Speed:[/b] How fast you want time to pass.
+<br />[*][b]Duration:[/b] How long to record for.
+<br />[/list]
+<br />[*]Close the overlay, frame your shot, and hit the hotkey.
+<br />[/list][center][youtube]DklQ6SAhm10[/youtube][/center]
+<br />[line]
+<br />[size=5][b][color=#ffff00]Compatibility[/color][/b][/size]
+<br />
+<br />Works with:
+<br />[list][*][b][url=https://www.nexusmods.com/cyberpunk2077/mods/12369]Balanced Nighttime Cycle[/url][/b] (Respects new cycle timings)
+<br />[*][b][url=https://www.nexusmods.com/cyberpunk2077/mods/18027]Weather Switcher[/url][/b] (Great for locking weather before a shot)
+<br />[*][b][url=https://www.nexusmods.com/cyberpunk2077/mods/12490]Nova City 2[/url][/b]
+<br />[/list]
+<br />[line]
+<br />[size=5][b][color=#ffff00]Known issues[/color][/b][/size]
+<br />
+<br />[list][*]Vehicles are hard-coded to ignore time dilation in the physics engine. In simulation mode, nearby vehicles will run at the default speed (1x) unless Traffic Frenzy is enabled.
+<br />[*]Traffic Frenzy is experimental. Cars may corner aggressively, briefly stop, or behave unusually at higher multipliers.
+<br />[/list]
+<br />[line]
+<br />[size=5][b][color=#ffff00]Installation[/color][/b][/size]
+<br />
+<br />[list=1]
+<br />[*] Install [url=https://www.nexusmods.com/cyberpunk2077/mods/107]Cyber Engine Tweaks[/url].
+<br />[*]Download and install with a mod manager or
+<br />[*] Download and extract the zip file.
+<br />[*] Drop the [b]bin[/b] folder into your Cyberpunk 2077 directory.
+<br />[font=Courier New]Cyberpunk 2077&#92;bin&#92;x64&#92;plugins&#92;cyber_engine_tweaks&#92;mods&#92;simple_timelapse&#92;[/font]
+<br />[/list]
+<br />[line]
+<br />[size=5][b][color=#ffff00]Credits[/color][/b][/size]
+<br />
+<br />[list]
+<br />[*] [b]Mokuppo[/b] for the HUD toggling logic used in [url=https://www.nexusmods.com/cyberpunk2077/mods/9311]SimpleToggleHUD[/url]. Used with permission.
+<br />[*] [b]psiberx[/b] for the [url=https://github.com/psiberx/cp2077-cet-kit]CP2077 CET Kit[/url]
+<br />[*] [b]Yamashi[/b] and the CET Team.
+<br />[/list]

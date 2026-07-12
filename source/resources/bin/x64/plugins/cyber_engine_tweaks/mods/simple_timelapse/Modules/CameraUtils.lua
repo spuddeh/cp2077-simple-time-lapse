@@ -11,7 +11,7 @@
 local GameSettings = require("Modules/GameSettings")
 local CameraUtils = {}
 
--- Hardcoded path as requested
+-- The game setting that controls additive camera movement (head bob / sway).
 local CAMERA_PATH = "/accessibility/difficulty/AdditiveCameraMovements"
 
 -- Helper to get IDs safely at runtime

@@ -386,7 +386,7 @@ function VehicleDilation.Stop()
     scanTimer = 0
 end
 
---- Legacy alias / safety reset.
+--- Alias for Stop(); also used as a safety reset.
 function VehicleDilation.Reset()
     VehicleDilation.Stop()
 end

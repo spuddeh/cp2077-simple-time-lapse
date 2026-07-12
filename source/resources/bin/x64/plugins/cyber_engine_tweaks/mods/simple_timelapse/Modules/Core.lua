@@ -282,7 +282,7 @@ function Core.Stop(mod, HudUtils)
         local actualEndSeconds = Core.GetTotalGameSeconds()
         local actualEndStr = Core.FormatSecondsToTime(actualEndSeconds)
 
-        -- Logic: Calc stats (simplified for Mode 2)
+        -- Calculate the run stats.
         local gameSecondsPassed = actualEndSeconds - mod.startGameTime
         local factor = 0
         local ratio = 0

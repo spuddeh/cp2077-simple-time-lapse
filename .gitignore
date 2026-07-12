@@ -14,3 +14,7 @@ custom_tweaks.txt
 *.zip
 *.xcf
 images/
+
+# Local Claude Code orientation file. Machine-specific working notes;
+# never published, never in git. See wiki: decisions/per-mod-claude-md-superseded
+CLAUDE.md

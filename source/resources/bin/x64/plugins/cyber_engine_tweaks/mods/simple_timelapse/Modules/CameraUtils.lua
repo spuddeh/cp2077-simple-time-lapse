@@ -9,6 +9,7 @@
 -- ======================================================================================
 
 local GameSettings = require("Modules/GameSettings")
+local Log = require("Modules/Log")
 local CameraUtils = {}
 
 -- The game setting that controls additive camera movement (head bob / sway).
@@ -34,9 +35,9 @@ function CameraUtils.Disable(mod)
     if success and val ~= nil then
         mod.cameraSnapshot = val
         GameSettings.Set(CAMERA_PATH, 0.0)
-        print("[Simple Time-lapse] Head Bobbing Disabled")
+        Log.Debug("Head bob disabled")
     else
-        print("[Simple Time-lapse] Warning: Could not access AdditiveCameraMovements at " .. CAMERA_PATH)
+        Log.Warn("Could not read %s, head bob left unchanged", CAMERA_PATH)
     end
 end
 
@@ -45,12 +46,12 @@ function CameraUtils.Restore(mod)
 
     pcall(function() GameSettings.Set(CAMERA_PATH, mod.cameraSnapshot) end)
     mod.cameraSnapshot = nil
-    print("[Simple Time-lapse] Head Bobbing Restored")
+    Log.Debug("Head bob restored")
 end
 
 function CameraUtils.ForceRestore(mod)
     pcall(function() GameSettings.Set(CAMERA_PATH, 1.0) end)
-    print("[Time-lapse] Head Bob Force Restored (1.0)")
+    Log.Debug("Head bob forced to 1.0")
 end
 
 -- =================================================================
@@ -84,7 +85,7 @@ function CameraUtils.UnlockMovement(mod)
     local ids = GetRestrictionIDs()
     ses:RemoveStatusEffect(entityID, ids.MOVE)
     ses:RemoveStatusEffect(entityID, ids.COMBAT)
-    print("[Time-lapse] Movement Unlocked")
+    Log.Debug("Movement unlocked")
 end
 
 function CameraUtils.UnlockCamera(mod)
@@ -93,7 +94,7 @@ function CameraUtils.UnlockCamera(mod)
 
     local ids = GetRestrictionIDs()
     ses:RemoveStatusEffect(player:GetEntityID(), ids.LOOK)
-    print("[Time-lapse] Camera Unlocked")
+    Log.Debug("Camera unlocked")
 end
 
 function CameraUtils.UnlockPlayer(mod)

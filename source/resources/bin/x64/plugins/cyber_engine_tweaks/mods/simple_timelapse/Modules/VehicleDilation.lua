@@ -9,6 +9,8 @@
 -- Mod Version: 1.3.0
 -- ======================================================================================
 
+local Log = require("Modules/Log")
+
 local VehicleDilation = {}
 local appliedVehicles = {} -- Tracks which vehicles have been given autonomous commands
 local scanTimer = 0        -- Accumulates delta time until the next scan interval
@@ -61,7 +63,7 @@ end
 local function WriteOption(entry, value)
     local ok, err = pcall(GameOptions["Set" .. TYPE_SUFFIX[entry.type]], entry.group, entry.key, value)
     if not ok then
-        print(string.format("[Time-lapse][VD] ERROR writing %s = %s: %s", PathOf(entry), tostring(value), tostring(err)))
+        Log.Error("Traffic Frenzy could not write %s = %s: %s", PathOf(entry), tostring(value), tostring(err))
         return
     end
 
@@ -74,10 +76,10 @@ local function WriteOption(entry, value)
     end
 
     if kept then
-        print(string.format("[Time-lapse][VD] INI OK: %s = %s", PathOf(entry), tostring(value)))
+        Log.Debug("Traffic Frenzy: %s = %s", PathOf(entry), tostring(value))
     else
-        print(string.format("[Time-lapse][VD] INI UNVERIFIED: %s target=%s readback=%s",
-            PathOf(entry), tostring(value), tostring(readback)))
+        Log.Warn("Traffic Frenzy: %s did not keep its value (wrote %s, read back %s)",
+            PathOf(entry), tostring(value), tostring(readback))
     end
 end
 
@@ -92,13 +94,13 @@ local function SnapshotINI()
         local current = ReadOption(entry)
         if current == nil then current = entry.baseline end
         savedOriginals[PathOf(entry)] = current
-        print(string.format("[Time-lapse][VD] Snapshot: %s = %s", PathOf(entry), tostring(current)))
+        Log.Debug("Traffic Frenzy snapshot: %s = %s", PathOf(entry), tostring(current))
     end
 end
 
 --- Applies every override. Scaled entries are capped at 20x their snapshotted value.
 local function ApplyINI(speedMult)
-    print(string.format("[Time-lapse][VD] Applying INI overrides for %.1fx", speedMult))
+    Log.Debug("Traffic Frenzy: applying INI overrides for %.1fx", speedMult)
     for _, entry in ipairs(iniOverrides) do
         if entry.scale then
             local baseVal = savedOriginals[PathOf(entry)] or entry.baseline
@@ -112,7 +114,7 @@ end
 
 --- Writes every override back to its snapshotted value, or its baseline if none was taken.
 local function RestoreINI()
-    print("[Time-lapse][VD] Restoring original INI values.")
+    Log.Debug("Traffic Frenzy: restoring INI values")
     for _, entry in ipairs(iniOverrides) do
         local original = savedOriginals[PathOf(entry)]
         if original == nil then original = entry.baseline end
@@ -179,8 +181,7 @@ local function ApplyAutonomousDrive(vehicle, aiComp, entId, speedMult)
     vehicle:QueueEvent(evt)
 
     appliedVehicles[entId] = true
-    print(string.format("[Time-lapse][VD] Applied drive cmd to %s (speed %.0f -> %.0f m/s)",
-        entId, currentSpeed, targetMaxSpeed))
+    Log.Debug("Traffic Frenzy: drive command on %s (%.0f -> %.0f m/s)", entId, currentSpeed, targetMaxSpeed)
 end
 
 -- =========================================================================
@@ -237,9 +238,8 @@ local function ScanAndApply(speedMult)
 
     -- Log scan summary once per second (not every tick)
     if newlyApplied > 0 or logTimer >= 1.0 then
-        print(string.format(
-            "[Time-lapse][VD] Scan: %d parts | %d vehicles (new:%d tracked:%d noAI:%d)",
-            #parts, vehiclesFound, newlyApplied, alreadyApplied, skippedParked))
+        Log.Debug("Traffic Frenzy scan: %d parts, %d vehicles (new %d, tracked %d, no AI %d)",
+            #parts, vehiclesFound, newlyApplied, alreadyApplied, skippedParked)
         logTimer = 0
     end
 end
@@ -252,7 +252,7 @@ end
 --- Snapshots Vehicle INI caps and applies overrides.
 --- @param speedMult number The frenzySpeedMult from the UI slider
 function VehicleDilation.Start(speedMult)
-    print(string.format("[Time-lapse][VD] Starting (Autonomous Drive) at %.1fx", speedMult))
+    Log.Debug("Traffic Frenzy starting at %.1fx", speedMult)
     SnapshotINI()
     ApplyINI(speedMult)
     appliedVehicles = {}
@@ -277,7 +277,7 @@ end
 
 --- Called when the time-lapse stops. Restores INI and clears tracking.
 function VehicleDilation.Stop()
-    print("[Time-lapse][VD] Stopping. Restoring vehicle caps and clearing tracking.")
+    Log.Debug("Traffic Frenzy stopping")
     RestoreINI()
     appliedVehicles = {}
     scanTimer = 0

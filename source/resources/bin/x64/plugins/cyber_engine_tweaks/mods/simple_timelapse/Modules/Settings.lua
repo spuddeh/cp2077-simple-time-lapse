@@ -8,6 +8,8 @@
 -- Debug and experimental options are never saved, so they start off every launch.
 -- ======================================================================================
 
+local Log = require("Modules/Log")
+
 local Settings = {}
 
 local FILE_NAME = "settings.json"
@@ -15,7 +17,6 @@ local FILE_NAME = "settings.json"
 -- Options that start from their default every launch.
 local SESSION_ONLY = {
     forceVehicleDilation = true,
-    logToFile = true,
     unlockSpeed = true,
 }
 
@@ -45,7 +46,7 @@ function Settings.Load(mod, Core)
 
     local ok, data = pcall(json.decode, content)
     if not ok or type(data) ~= "table" then
-        print("[Simple Time-lapse] settings.json could not be read, using defaults")
+        Log.Warn("settings.json could not be read, using defaults")
         return
     end
 
@@ -64,6 +65,7 @@ function Settings.Load(mod, Core)
         end
     end
 
+    if not Log.IsLevel(mod.settings.logLevel) then mod.settings.logLevel = mod.defaults.logLevel end
     Core.ClampSpeed(mod)
     Core.RecalcDuration(mod)
 end

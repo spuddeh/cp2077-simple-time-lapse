@@ -13,6 +13,7 @@ local HudUtils = require("Modules/HudUtils")
 local CameraUtils = require("Modules/CameraUtils")
 local VehicleDilation = require("Modules/VehicleDilation")
 local Settings = require("Modules/Settings")
+local Log = require("Modules/Log")
 
 local mod = {
     version = "v1.3.0",
@@ -63,7 +64,7 @@ local mod = {
         disableCrowds = false,
 
         unlockSpeed = false,
-        logToFile = false,
+        logLevel = Log.DEFAULT_LEVEL,
         forceVehicleDilation = false, -- Experimental
         frenzySpeedMult = 1.5,
         comboHour = 5,
@@ -92,7 +93,8 @@ end)
 
 registerForEvent("onInit", function()
     Settings.Load(mod, Core)
-    print("[Simple Time-lapse] Initialized (" .. mod.version .. ")")
+    Log.SetLevel(mod.settings.logLevel)
+    Log.Info("Initialized (%s)", mod.version)
 end)
 
 registerForEvent("onShutdown", function()

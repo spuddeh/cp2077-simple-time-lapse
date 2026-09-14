@@ -13,6 +13,7 @@
 -- ======================================================================================
 
 local GameSettings = require("Modules/GameSettings")
+local Log = require("Modules/Log")
 local HudUtils = {}
 
 --- Gets the native HUD group object safely.
@@ -33,7 +34,7 @@ function HudUtils.Hide(mod)
         GameSettings.SetGroupBool('/interface/hud', false)
 
         mod.hudHidden = true
-        print("[Time-lapse] HUD Hidden (Snapshot Saved)")
+        Log.Debug("HUD hidden, snapshot saved")
     end
 end
 
@@ -42,7 +43,7 @@ function HudUtils.Restore(mod)
     GameSettings.ImportVars(mod.hudSettingsSnapshot)
 
     mod.hudHidden = false
-    print("[Time-lapse] HUD Restored")
+    Log.Debug("HUD restored")
 end
 
 --- Force Restore (Panic Button).
@@ -50,13 +51,13 @@ function HudUtils.ForceRestore(mod)
     GameSettings.SetGroupBool('/interface/hud', true)
 
     mod.hudHidden = false
-    print("[Time-lapse] HUD Force Restored (All On)")
+    Log.Debug("HUD forced fully on")
 end
 
 function HudUtils.Toggle(mod)
     if mod.settings.autoHideHud then
         mod.settings.autoHideHud = false
-        print("[Time-lapse] Auto-Hide disabled due to manual toggle.")
+        Log.Debug("Auto-Hide HUD turned off by the Toggle HUD hotkey")
     end
 
     if mod.hudHidden then

@@ -7,6 +7,8 @@
 -- Handles all ImGui rendering, including the Header/Body/Footer layout architecture.
 -- ======================================================================================
 
+local Log = require("Modules/Log")
+
 local UI = {}
 
 -- Choices for the Start Time combos. Index 0 is 1 o'clock and 00 minutes.
@@ -343,8 +345,19 @@ function UI.Draw(mod, Core, HudUtils, CameraUtils)
                 end
 
                 ImGui.Spacing(); ImGui.Separator(); ImGui.Spacing()
-                ImGui.TextWrapped(IconGlyphs.FileDocumentOutline .. " Logging")
-                mod.settings.logToFile = ImGui.Checkbox("Write detailed stats to log file", mod.settings.logToFile)
+                ImGui.TextWrapped(IconGlyphs.FileDocumentOutline .. " Log Level")
+                local levelIndex = 0
+                for i, name in ipairs(Log.LEVELS) do
+                    if name == mod.settings.logLevel then levelIndex = i - 1 end
+                end
+                local newIndex, levelChanged = ImGui.Combo("##LogLevel", levelIndex, Log.LEVELS, #Log.LEVELS)
+                if levelChanged then
+                    mod.settings.logLevel = Log.LEVELS[newIndex + 1]
+                    Log.SetLevel(mod.settings.logLevel)
+                end
+                if ImGui.IsItemHovered() then
+                    ImGui.SetTooltip("What the mod writes to the CET console and its log file.\nWarn shows only problems. Info adds start and stop stats. Debug adds everything.")
+                end
 
                 ImGui.Spacing()
                 ImGui.Spacing(); ImGui.Separator(); ImGui.Spacing()

@@ -8,18 +8,13 @@
 -- ======================================================================================
 
 local CameraUtils = require("Modules/CameraUtils")
+local Log = require("Modules/Log")
 local VehicleDilation = require("Modules/VehicleDilation")
 local Core = {}
 
 -- =================================================================
--- ### LOGGING & AUDIO ###
+-- ### MESSAGES & AUDIO ###
 -- =================================================================
-
-function Core.Log(mod, msg)
-    print(msg)
-    if mod.settings.logToFile then spdlog.info(msg) end
-end
-
 --- Posts a message to one of the UI_Notifications blackboard fields.
 local function PostScreenMessage(fieldName, text, duration)
     local msg = SimpleScreenMessage.new()
@@ -163,7 +158,7 @@ function Core.SetTimeNow(mod)
     local ts = Game.GetTimeSystem()
     if ts then
         ts:SetGameTimeBySeconds(Core.CalculateSecondsFromCombo(mod))
-        print("[Time-lapse] Time manually set")
+        Log.Debug("Time manually set")
         Core.PlaySound(mod, "ui_menu_click")
     end
 end
@@ -210,18 +205,10 @@ function Core.ExecuteStart(mod, HudUtils)
     mod.startGameTime = Core.GetTotalGameSeconds()
     local startStr = Core.FormatSecondsToTime(mod.startGameTime)
 
-    print("[Time-lapse] STARTING... (" .. mod.settings.speed .. "x)")
+    Log.Info("Started: %s mode, %.1fx, start %s, duration %.2fs, est. end %s",
+        mod.settings.mode == 0 and "Simulation" or "Clock", mod.settings.speed, startStr,
+        mod.settings.duration, Core.GetEstimatedData(mod).endTime)
     Core.PlaySound(mod, "ui_menu_click")
-
-    if mod.settings.logToFile then
-        local data = Core.GetEstimatedData(mod)
-        spdlog.info("=== TIME-LAPSE START ===")
-        spdlog.info(string.format("Start Time:   %s", startStr))
-        spdlog.info(string.format("Duration:     %.2fs", mod.settings.duration))
-        spdlog.info(string.format("Speed:        %.1fx", mod.settings.speed))
-        spdlog.info(string.format("Est. End:     %s", data.endTime))
-        spdlog.info("=======================")
-    end
 
     if mod.settings.autoHideHud and not mod.hudHidden then
         HudUtils.Hide(mod)
@@ -259,8 +246,8 @@ function Core.ExecuteStart(mod, HudUtils)
     mod.overlayMessage = nil
 
     if mod.settings.forceVehicleDilation and mod.settings.mode == 0 then
-        if VehicleDilation then VehicleDilation.Start(mod.settings.frenzySpeedMult) end
-        Core.Log(mod, "[Time-lapse] Traffic Speed Override Active.")
+        VehicleDilation.Start(mod.settings.frenzySpeedMult)
+        Log.Info("Traffic Frenzy active at %.1fx", mod.settings.frenzySpeedMult)
     end
 end
 
@@ -273,7 +260,7 @@ function Core.Stop(mod, HudUtils)
     -- Always reset dilation, safe for both modes
     Core.ApplyDilation(1.0)
 
-    if VehicleDilation then VehicleDilation.Stop() end
+    VehicleDilation.Stop()
 
     if mod.settings.autoHideHud and mod.hudHidden then
         HudUtils.Restore(mod)
@@ -308,19 +295,9 @@ function Core.Stop(mod, HudUtils)
         mod.lastRunStats.factor = factor
         mod.lastRunStats.valid = true
 
-        print("[Time-lapse] STOPPED.")
-
-        if mod.settings.logToFile then
-            spdlog.info("=== TIME-LAPSE STOP ===")
-            spdlog.info(string.format("Mode: %s", (mod.settings.mode == 0 and "Simulation" or "Clock")))
-            spdlog.info(string.format("Stats: %.2f GameSecs in %.2f RealSecs", gameSecondsPassed, mod.elapsedTime))
-            if mod.settings.mode == 0 then
-                spdlog.info(string.format("Calibration Factor: %.4f", factor))
-            else
-                spdlog.info(string.format("Clock Efficiency: %.4f", factor))
-            end
-            spdlog.info("======================")
-        end
+        Log.Info("Stopped: %.2f game seconds in %.2f real seconds, %s %.4f",
+            gameSecondsPassed, mod.elapsedTime,
+            mod.settings.mode == 0 and "calibration factor" or "clock efficiency", factor)
     end
 end
 
@@ -329,7 +306,7 @@ function Core.Start(mod, HudUtils)
 
     if Core.IsCombatActive() then
         Core.NotifyWarning(mod, "Cannot start Time-lapse during Combat!")
-        print("[Time-lapse] Start blocked: In Combat.")
+        Log.Info("Start refused: player is in combat")
         return
     end
 
@@ -337,7 +314,7 @@ function Core.Start(mod, HudUtils)
         mod.delayTimer = mod.settings.startDelay
         mod.isDelaying = true
         mod.lastCountdownInt = math.ceil(mod.delayTimer)
-        print(string.format("[Time-lapse] Countdown: %.1fs...", mod.settings.startDelay))
+        Log.Debug("Countdown: %.1fs", mod.settings.startDelay)
         if mod.lastCountdownInt > 1 then
             Core.Notify(mod, "Starting in " .. mod.lastCountdownInt .. "...")
             Core.PlaySound(mod, "ui_menu_hover")
@@ -382,7 +359,7 @@ function Core.Update(mod, delta, HudUtils)
 
         if mod.settings.duration > 0 then
             if mod.elapsedTime >= mod.settings.duration then
-                Core.Log(mod, "[Time-lapse] Duration reached. Stopping.")
+                Log.Info("Duration reached, stopping")
                 Core.Stop(mod, HudUtils)
             end
         end
@@ -394,7 +371,7 @@ function Core.Update(mod, delta, HudUtils)
         if mod.settings.disableAirTraffic then
             Game.GetQuestsSystem():SetFactStr("air_traffic_off", 1)
         end
-        if mod.settings.forceVehicleDilation and mod.settings.mode == 0 and VehicleDilation then
+        if mod.settings.forceVehicleDilation and mod.settings.mode == 0 then
             VehicleDilation.Update(delta, mod.settings.frenzySpeedMult)
         end
     end

@@ -7,7 +7,6 @@
 -- Contains the "Business Logic": Time, Dilation, Audio, Messages, and Update Loop.
 -- ======================================================================================
 
-local GameSettings = require("Modules/GameSettings")
 local CameraUtils = require("Modules/CameraUtils")
 local VehicleDilation = require("Modules/VehicleDilation")
 local Core = {}
@@ -21,21 +20,23 @@ function Core.Log(mod, msg)
     if mod.settings.logToFile then spdlog.info(msg) end
 end
 
-function Core.Notify(mod, text)
-    if not mod.settings.showMessages then return end
+--- Posts a message to one of the UI_Notifications blackboard fields.
+local function PostScreenMessage(fieldName, text, duration)
     local msg = SimpleScreenMessage.new()
-    msg.isShown = true; msg.duration = 2.0; msg.message = text
+    msg.isShown = true; msg.duration = duration; msg.message = text
     local bbDefs = Game.GetAllBlackboardDefs()
     local bbNotify = Game.GetBlackboardSystem():Get(bbDefs.UI_Notifications)
-    if bbNotify then bbNotify:SetVariant(bbDefs.UI_Notifications.OnscreenMessage, ToVariant(msg), true) end
+    if bbNotify then bbNotify:SetVariant(bbDefs.UI_Notifications[fieldName], ToVariant(msg), true) end
 end
 
+function Core.Notify(mod, text)
+    if not mod.settings.showMessages then return end
+    PostScreenMessage("OnscreenMessage", text, 2.0)
+end
+
+--- Always shown, whatever the Messages setting, because it explains a refused action.
 function Core.NotifyWarning(mod, text)
-    local msg = SimpleScreenMessage.new()
-    msg.isShown = true; msg.duration = 3.0; msg.message = text
-    local bbDefs = Game.GetAllBlackboardDefs()
-    local bbNotify = Game.GetBlackboardSystem():Get(bbDefs.UI_Notifications)
-    if bbNotify then bbNotify:SetVariant(bbDefs.UI_Notifications.WarningMessage, ToVariant(msg), true) end
+    PostScreenMessage("WarningMessage", text, 3.0)
     Core.PlaySound(mod, "ui_menu_deny")
 end
 
@@ -141,9 +142,7 @@ function Core.GetEstimatedData(mod)
     if mod.settings.mode == 0 then
         -- Mode 0: Simulation (Dilation)
         -- 1x Dilation = Normal Game Speed (~8 Game Seconds per Real Second)
-        local limit = 10.0
-        if mod.settings.unlockSpeed then limit = 100.0 end
-        local effectiveSpeed = math.min(mod.settings.speed, limit)
+        local effectiveSpeed = math.min(mod.settings.speed, Core.GetMaxSpeed(mod))
         addedGameSeconds = mod.settings.duration * effectiveSpeed * 8.0
     else
         -- Mode 1: Clock Only

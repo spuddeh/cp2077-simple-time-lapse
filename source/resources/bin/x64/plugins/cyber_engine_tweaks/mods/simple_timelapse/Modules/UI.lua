@@ -9,6 +9,10 @@
 
 local UI = {}
 
+-- Choices for the Start Time combos. Index 0 is 1 o'clock and 00 minutes.
+local HOURS = {}; for i = 1, 12 do HOURS[i] = tostring(i) end
+local MINUTES = {}; for i = 0, 59 do MINUTES[i + 1] = string.format("%02d", i) end
+
 function UI.Draw(mod, Core, HudUtils, CameraUtils)
     if not mod.isOverlayOpen then return end
 
@@ -16,7 +20,7 @@ function UI.Draw(mod, Core, HudUtils, CameraUtils)
     ImGui.SetNextWindowSize(700, 960, ImGuiCond.FirstUseEver)
 
     if ImGui.Begin("Simple Time-lapse", true) then
-        local regionW = ImGui.GetContentRegionAvail(); local spacing = ImGui.GetStyle().ItemSpacing.x
+        local spacing = ImGui.GetStyle().ItemSpacing.x
 
         -- === HEADER (Pinned) ===
         if mod.isActive then
@@ -64,12 +68,10 @@ function UI.Draw(mod, Core, HudUtils, CameraUtils)
                     -- 1. START TIME
                     ImGui.TextWrapped(IconGlyphs.CalendarClock .. " Start Time")
                     local comboW = (bodyW * 0.35) - spacing
-                    local hours = {}; for i = 0, 11 do table.insert(hours, tostring(i + 1)) end
-                    local minutes = {}; for i = 0, 59 do table.insert(minutes, string.format("%02d", i)) end
 
                     ImGui.PushItemWidth(comboW); mod.settings.comboHour = ImGui.Combo("##Hour", mod.settings.comboHour,
-                        hours, #hours); ImGui.SameLine()
-                    mod.settings.comboMinute = ImGui.Combo("##Minute", mod.settings.comboMinute, minutes, #minutes); ImGui
+                        HOURS, #HOURS); ImGui.SameLine()
+                    mod.settings.comboMinute = ImGui.Combo("##Minute", mod.settings.comboMinute, MINUTES, #MINUTES); ImGui
                         .SameLine()
                     if ImGui.RadioButton("AM", mod.settings.comboAmPm == 0) then mod.settings.comboAmPm = 0 end; ImGui
                         .SameLine()

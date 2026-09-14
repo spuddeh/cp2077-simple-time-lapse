@@ -17,7 +17,6 @@ local HudUtils = {}
 
 --- Gets the native HUD group object safely.
 function HudUtils.GetHudGroup()
-    if not GameSettings then return nil end
     local sys = Game.GetSettingsSystem()
     if not sys then return nil end
     return sys:GetGroup(CName.new('/interface/hud'))
@@ -40,8 +39,6 @@ end
 
 --- Restores the HUD from snapshot.
 function HudUtils.Restore(mod)
-    if not GameSettings then return end
-
     GameSettings.ImportVars(mod.hudSettingsSnapshot)
 
     mod.hudHidden = false
@@ -50,8 +47,6 @@ end
 
 --- Force Restore (Panic Button).
 function HudUtils.ForceRestore(mod)
-    if not GameSettings then return end
-
     GameSettings.SetGroupBool('/interface/hud', true)
 
     mod.hudHidden = false

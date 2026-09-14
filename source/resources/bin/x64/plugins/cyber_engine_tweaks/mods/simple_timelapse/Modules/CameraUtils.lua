@@ -28,8 +28,6 @@ end
 -- =================================================================
 
 function CameraUtils.Disable(mod)
-    if not GameSettings then return end
-
     -- Safely attempt to get the current setting
     local success, val = pcall(function() return GameSettings.Get(CAMERA_PATH) end)
 
@@ -43,7 +41,7 @@ function CameraUtils.Disable(mod)
 end
 
 function CameraUtils.Restore(mod)
-    if not GameSettings or mod.cameraSnapshot == nil then return end
+    if mod.cameraSnapshot == nil then return end
 
     pcall(function() GameSettings.Set(CAMERA_PATH, mod.cameraSnapshot) end)
     mod.cameraSnapshot = nil
@@ -51,7 +49,6 @@ function CameraUtils.Restore(mod)
 end
 
 function CameraUtils.ForceRestore(mod)
-    if not GameSettings then return end
     pcall(function() GameSettings.Set(CAMERA_PATH, 1.0) end)
     print("[Time-lapse] Head Bob Force Restored (1.0)")
 end

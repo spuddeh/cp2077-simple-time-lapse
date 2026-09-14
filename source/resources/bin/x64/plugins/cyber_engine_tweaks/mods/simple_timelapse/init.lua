@@ -14,6 +14,7 @@ local CameraUtils = require("Modules/CameraUtils")
 local VehicleDilation = require("Modules/VehicleDilation")
 local Settings = require("Modules/Settings")
 local Log = require("Modules/Log")
+local Cron = require("Modules/Cron")
 
 local mod = {
     version = "v1.3.0",
@@ -114,6 +115,7 @@ end)
 registerForEvent("onDraw", function() UI.Draw(mod, Core, HudUtils, CameraUtils) end)
 
 registerForEvent("onUpdate", function(delta)
+    Cron.Update(delta)
     Core.Update(mod, delta, HudUtils)
 end)
 

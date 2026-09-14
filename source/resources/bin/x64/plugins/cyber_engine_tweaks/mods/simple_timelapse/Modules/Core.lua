@@ -10,7 +10,12 @@
 local CameraUtils = require("Modules/CameraUtils")
 local Log = require("Modules/Log")
 local VehicleDilation = require("Modules/VehicleDilation")
+local Cron = require("Modules/Cron")
 local Core = {}
+
+-- Seconds between the HUD returning and the "Time-lapse Finished" message and sound,
+-- which mark the end of the run on a recording.
+local FINISH_MARKER_DELAY = 1.0
 
 -- =================================================================
 -- ### MESSAGES & AUDIO ###
@@ -273,8 +278,11 @@ function Core.Stop(mod, HudUtils)
     GameOptions.SetBool("Crowd", "Enabled", true)
 
     if wasActive and mod.elapsedTime > 0 then
-        Core.Notify(mod, "Time-lapse Finished")
-        Core.PlaySound(mod, "ui_hacking_access_granted")
+        mod.finishMarkerTimer = Cron.After(FINISH_MARKER_DELAY, function()
+            mod.finishMarkerTimer = nil
+            Core.Notify(mod, "Time-lapse Finished")
+            Core.PlaySound(mod, "ui_hacking_access_granted")
+        end)
 
         local actualEndSeconds = Core.GetTotalGameSeconds()
         local actualEndStr = Core.FormatSecondsToTime(actualEndSeconds)
@@ -303,6 +311,11 @@ end
 
 function Core.Start(mod, HudUtils)
     if mod.isActive or mod.isDelaying then return end
+
+    if mod.finishMarkerTimer then
+        Cron.Halt(mod.finishMarkerTimer)
+        mod.finishMarkerTimer = nil
+    end
 
     if Core.IsCombatActive() then
         Core.NotifyWarning(mod, "Cannot start Time-lapse during Combat!")

@@ -16,19 +16,11 @@ local logTimer = 0         -- Throttles scan summary logs to once per second
 
 -- =========================================================================
 -- ### INI OVERRIDES ###
--- Two categories:
---   1. Vehicle force-move caps (float, scaled by speedMult)
---   2. Crowd spawning overrides (fixed values during time-lapse)
+-- Each entry is snapshotted on Start and written back on Stop. An entry with `scale`
+-- is multiplied by the speed multiplier; an entry with `timelapse` is set to that value.
 -- =========================================================================
 local savedOriginals = {}
 
--- Vehicle physics caps — scaled by speedMult
-local vehicleOverrides = {
-    { group = "Vehicle", key = "ForceMoveToMaxLinearSpeed",  baseline = 30.0, scale = 1.0 },
-    { group = "Vehicle", key = "ForceMoveToMaxAngularSpeed", baseline = 5.0,  scale = 0.5 },
-}
-
--- Crowd & traffic overrides — fixed values during time-lapse.
 -- Spawning:
 --   DespawnLastSeenMinTime: Seconds an entity persists after leaving view. Lower = faster cleanup.
 --   SpawnLimit: Per-tick spawn batch size (default 1).
@@ -37,182 +29,95 @@ local vehicleOverrides = {
 --   DisposeOnOverlap: Auto-despawns wedged/overlapping vehicles.
 --   SafetyMeasure: Extra collision avoidance precautions.
 --   SafetyMeasureDistance: Buffer distance (metres) for safety checks.
-local crowdOverrides = {
+local iniOverrides = {
+    -- Vehicle force-move caps
+    { group = "Vehicle", key = "ForceMoveToMaxLinearSpeed",  type = "float", baseline = 30.0,  scale = 1.0 },
+    { group = "Vehicle", key = "ForceMoveToMaxAngularSpeed", type = "float", baseline = 5.0,   scale = 0.5 },
     -- Spawning
-    { group = "Crowd",   key = "DespawnLastSeenMinTime", type = "float", baseline = 20.0,  timelapse = 5.0 },
-    { group = "Crowd",   key = "SpawnLimit",             type = "int",   baseline = 1,     timelapse = 1 },
+    { group = "Crowd",   key = "DespawnLastSeenMinTime",     type = "float", baseline = 20.0,  timelapse = 5.0 },
+    { group = "Crowd",   key = "SpawnLimit",                 type = "int",   baseline = 1,     timelapse = 1 },
     -- Collision recovery
-    { group = "Vehicle", key = "DisableCollisionDamage", type = "bool",  baseline = false, timelapse = true },
-    { group = "Traffic", key = "DisposeOnOverlap",       type = "bool",  baseline = false, timelapse = true },
-    { group = "Traffic", key = "SafetyMeasure",          type = "bool",  baseline = false, timelapse = true },
-    { group = "Traffic", key = "SafetyMeasureDistance",  type = "float", baseline = 0.5,   timelapse = 2.0 },
+    { group = "Vehicle", key = "DisableCollisionDamage",     type = "bool",  baseline = false, timelapse = true },
+    { group = "Traffic", key = "DisposeOnOverlap",           type = "bool",  baseline = false, timelapse = true },
+    { group = "Traffic", key = "SafetyMeasure",              type = "bool",  baseline = false, timelapse = true },
+    { group = "Traffic", key = "SafetyMeasureDistance",      type = "float", baseline = 0.5,   timelapse = 2.0 },
 }
 
--- =========================================================================
--- ### INTERNAL HELPERS ###
--- =========================================================================
+-- GameOptions getter/setter suffix for each entry type.
+local TYPE_SUFFIX = { float = "Float", int = "Int", bool = "Bool" }
 
---- Safely reads a float GameOption value.
-local function ReadFloat(group, key)
-    local ok, val = pcall(GameOptions.GetFloat, group, key)
-    if ok and val then return val end
-    return nil
+local function PathOf(entry)
+    return entry.group .. "/" .. entry.key
 end
 
---- Safely reads an int GameOption value.
-local function ReadInt(group, key)
-    local ok, val = pcall(GameOptions.GetInt, group, key)
-    if ok and val then return val end
-    return nil
-end
-
---- Safely reads a bool GameOption value.
-local function ReadBool(group, key)
-    local ok, val = pcall(GameOptions.GetBool, group, key)
+--- Reads an option, or nil if the game does not expose it.
+local function ReadOption(entry)
+    local ok, val = pcall(GameOptions["Get" .. TYPE_SUFFIX[entry.type]], entry.group, entry.key)
     if ok and val ~= nil then return val end
     return nil
 end
 
---- Writes a float value to a GameOption with verification logging.
-local function WriteFloat(group, key, value)
-    local ok, err = pcall(GameOptions.SetFloat, group, key, value)
+--- Writes an option and reads it back to confirm the game kept the value.
+local function WriteOption(entry, value)
+    local ok, err = pcall(GameOptions["Set" .. TYPE_SUFFIX[entry.type]], entry.group, entry.key, value)
     if not ok then
-        print(string.format("[Time-lapse][VD] ERROR writing %s/%s = %.2f: %s", group, key, value, tostring(err)))
-        return false
+        print(string.format("[Time-lapse][VD] ERROR writing %s = %s: %s", PathOf(entry), tostring(value), tostring(err)))
+        return
     end
-    local readback = ReadFloat(group, key)
-    if readback and math.abs(readback - value) < 0.01 then
-        print(string.format("[Time-lapse][VD] INI OK: %s/%s = %.2f", group, key, value))
-    else
-        print(string.format("[Time-lapse][VD] INI UNVERIFIED: %s/%s target=%.2f readback=%s",
-            group, key, value, tostring(readback)))
-    end
-    return true
-end
 
---- Writes an int value to a GameOption with verification logging.
-local function WriteInt(group, key, value)
-    local ok, err = pcall(GameOptions.SetInt, group, key, value)
-    if not ok then
-        print(string.format("[Time-lapse][VD] ERROR writing %s/%s = %d: %s", group, key, value, tostring(err)))
-        return false
-    end
-    local readback = ReadInt(group, key)
-    if readback and readback == value then
-        print(string.format("[Time-lapse][VD] INI OK: %s/%s = %d", group, key, value))
+    local readback = ReadOption(entry)
+    local kept
+    if entry.type == "float" then
+        kept = readback ~= nil and math.abs(readback - value) < 0.01
     else
-        print(string.format("[Time-lapse][VD] INI UNVERIFIED: %s/%s target=%d readback=%s",
-            group, key, value, tostring(readback)))
+        kept = readback == value
     end
-    return true
-end
 
---- Writes a bool value to a GameOption with verification logging.
-local function WriteBool(group, key, value)
-    local ok, err = pcall(GameOptions.SetBool, group, key, value)
-    if not ok then
-        print(string.format("[Time-lapse][VD] ERROR writing %s/%s = %s: %s", group, key, tostring(value), tostring(err)))
-        return false
-    end
-    local readback = ReadBool(group, key)
-    if readback ~= nil and readback == value then
-        print(string.format("[Time-lapse][VD] INI OK: %s/%s = %s", group, key, tostring(value)))
+    if kept then
+        print(string.format("[Time-lapse][VD] INI OK: %s = %s", PathOf(entry), tostring(value)))
     else
-        print(string.format("[Time-lapse][VD] INI UNVERIFIED: %s/%s target=%s readback=%s",
-            group, key, tostring(value), tostring(readback)))
+        print(string.format("[Time-lapse][VD] INI UNVERIFIED: %s target=%s readback=%s",
+            PathOf(entry), tostring(value), tostring(readback)))
     end
-    return true
 end
 
 -- =========================================================================
 -- ### SNAPSHOT / APPLY / RESTORE ###
 -- =========================================================================
 
---- Snapshots current values for both vehicle and crowd overrides.
+--- Records the current value of every override, falling back to its baseline.
 local function SnapshotINI()
     savedOriginals = {}
-
-    -- Vehicle force-move caps (floats)
-    for _, entry in ipairs(vehicleOverrides) do
-        local lookupKey = entry.group .. "/" .. entry.key
-        local current = ReadFloat(entry.group, entry.key)
-        savedOriginals[lookupKey] = current or entry.baseline
-        print(string.format("[Time-lapse][VD] Snapshot: %s = %.4f", lookupKey, savedOriginals[lookupKey]))
-    end
-
-    -- Crowd/traffic overrides (mixed types)
-    for _, entry in ipairs(crowdOverrides) do
-        local lookupKey = entry.group .. "/" .. entry.key
-        if entry.type == "int" then
-            local current = ReadInt(entry.group, entry.key)
-            savedOriginals[lookupKey] = current or entry.baseline
-            print(string.format("[Time-lapse][VD] Snapshot: %s = %d", lookupKey, savedOriginals[lookupKey]))
-        elseif entry.type == "bool" then
-            local current = ReadBool(entry.group, entry.key)
-            if current == nil then current = entry.baseline end
-            savedOriginals[lookupKey] = current
-            print(string.format("[Time-lapse][VD] Snapshot: %s = %s", lookupKey, tostring(current)))
-        else
-            local current = ReadFloat(entry.group, entry.key)
-            savedOriginals[lookupKey] = current or entry.baseline
-            print(string.format("[Time-lapse][VD] Snapshot: %s = %.4f", lookupKey, savedOriginals[lookupKey]))
-        end
+    for _, entry in ipairs(iniOverrides) do
+        local current = ReadOption(entry)
+        if current == nil then current = entry.baseline end
+        savedOriginals[PathOf(entry)] = current
+        print(string.format("[Time-lapse][VD] Snapshot: %s = %s", PathOf(entry), tostring(current)))
     end
 end
 
---- Applies all overrides. Vehicle caps are scaled by speedMult; crowd overrides use fixed timelapse values.
+--- Applies every override. Scaled entries are capped at 20x their snapshotted value.
 local function ApplyINI(speedMult)
-    -- Vehicle force-move caps (scaled by multiplier)
-    print(string.format("[Time-lapse][VD] Applying Vehicle force-move caps for %.1fx", speedMult))
-    for _, entry in ipairs(vehicleOverrides) do
-        local lookupKey = entry.group .. "/" .. entry.key
-        local baseVal = savedOriginals[lookupKey] or entry.baseline
-        local newVal = baseVal * speedMult * entry.scale
-        local maxCap = math.abs(baseVal) * 20.0
-        if newVal > maxCap then newVal = maxCap end
-        WriteFloat(entry.group, entry.key, newVal)
-    end
-
-    -- Crowd/traffic overrides (fixed timelapse values, not scaled)
-    print("[Time-lapse][VD] Applying crowd/traffic overrides")
-    for _, entry in ipairs(crowdOverrides) do
-        if entry.type == "int" then
-            WriteInt(entry.group, entry.key, entry.timelapse)
-        elseif entry.type == "bool" then
-            WriteBool(entry.group, entry.key, entry.timelapse)
+    print(string.format("[Time-lapse][VD] Applying INI overrides for %.1fx", speedMult))
+    for _, entry in ipairs(iniOverrides) do
+        if entry.scale then
+            local baseVal = savedOriginals[PathOf(entry)] or entry.baseline
+            local newVal = math.min(baseVal * speedMult * entry.scale, math.abs(baseVal) * 20.0)
+            WriteOption(entry, newVal)
         else
-            WriteFloat(entry.group, entry.key, entry.timelapse)
+            WriteOption(entry, entry.timelapse)
         end
     end
 end
 
---- Restores all overrides to their pre-timelapse snapshotted values.
+--- Writes every override back to its snapshotted value, or its baseline if none was taken.
 local function RestoreINI()
     print("[Time-lapse][VD] Restoring original INI values.")
-
-    -- Vehicle force-move caps
-    for _, entry in ipairs(vehicleOverrides) do
-        local lookupKey = entry.group .. "/" .. entry.key
-        local originalVal = savedOriginals[lookupKey] or entry.baseline
-        WriteFloat(entry.group, entry.key, originalVal)
+    for _, entry in ipairs(iniOverrides) do
+        local original = savedOriginals[PathOf(entry)]
+        if original == nil then original = entry.baseline end
+        WriteOption(entry, original)
     end
-
-    -- Crowd/traffic overrides
-    for _, entry in ipairs(crowdOverrides) do
-        local lookupKey = entry.group .. "/" .. entry.key
-        if entry.type == "int" then
-            local originalVal = savedOriginals[lookupKey] or entry.baseline
-            WriteInt(entry.group, entry.key, originalVal)
-        elseif entry.type == "bool" then
-            local originalVal = savedOriginals[lookupKey]
-            if originalVal == nil then originalVal = entry.baseline end
-            WriteBool(entry.group, entry.key, originalVal)
-        else
-            local originalVal = savedOriginals[lookupKey] or entry.baseline
-            WriteFloat(entry.group, entry.key, originalVal)
-        end
-    end
-
     savedOriginals = {}
 end
 
@@ -230,18 +135,12 @@ end
 ---   forcedStartSpeed = 5.0 * mult — gentler launch from stops, less likely to ram
 ---              the car in front when a light turns green.
 ---
+--- The caller has already checked that the vehicle is untracked and has an AI component.
 --- @param vehicle VehicleObject The vehicle entity to command
+--- @param aiComp AIComponent The vehicle's AI component
+--- @param entId string The tracking key for this vehicle
 --- @param speedMult number The speed multiplier (frenzySpeedMult, e.g. 1.5 to 20.0)
-function VehicleDilation.ApplyAutonomousDrive(vehicle, speedMult)
-    local entId = tostring(vehicle:GetEntityID().hash)
-    if appliedVehicles[entId] then return end -- Already commanding this one
-
-    -- PARKED CAR FILTER: Check for AI component. Active traffic vehicles
-    -- have an AIComponent; static decoration/parked cars do not.
-    -- We can't use GetCurrentSpeed() because marble/crowd vehicles report ~0.
-    local aiComp = vehicle:GetAIComponent()
-    if not aiComp then return end -- No AI = decoration/parked prop
-
+local function ApplyAutonomousDrive(vehicle, aiComp, entId, speedMult)
     local currentSpeed = vehicle:GetCurrentSpeed()
 
     local pos = vehicle:GetWorldPosition()
@@ -268,7 +167,7 @@ function VehicleDilation.ApplyAutonomousDrive(vehicle, speedMult)
     cmd.forcedStartSpeed = 5.0 * speedMult  -- Gentler launch (was 10.0 * speedMult)
     cmd.driveDownTheRoadIndefinitely = true -- Follow the road system (lanes, lights)
 
-    -- Send the command via the AI component (already validated above)
+    -- Send the command via the AI component
     -- Clear existing spline-following commands so the autonomous command takes priority
     aiComp:CancelOrInterruptCommand(CName.new("AIVehicleOnSplineCommand"), true, true)
     aiComp:CancelOrInterruptCommand(CName.new("AIVehicleJoinTrafficCommand"), true, true)
@@ -292,57 +191,55 @@ end
 --- drive commands to any that have an active AI component.
 --- Uses TargetingSet.Complete for a full 360-degree search (not frustum-only).
 ---
+--- TargetSearchQuery returns at most 128 parts. Mask 8 (Obj_Device) covers vehicles.
 --- @param speedMult number The speed multiplier
-function VehicleDilation.ScanAndApply(speedMult)
+local function ScanAndApply(speedMult)
     local player = Game.GetPlayer()
     if not player then return end
 
+    local searchQuery = TargetSearchQuery.new()
+    searchQuery.maxDistance = 800
+    searchQuery.testedSet = "Complete" -- 360-degree scan, not frustum-only
+    searchQuery.filterObjectByDistance = true
+    searchQuery.ignoreInstigator = true
+    searchQuery.searchFilter = Game.TSF_Any(8)
+
+    local success, parts = Game.GetTargetingSystem():GetTargetParts(player, searchQuery)
+    if not success or not parts then return end
+
     -- Diagnostic counters for this tick
-    local totalEntities = 0
     local vehiclesFound = 0
     local alreadyApplied = 0
     local skippedParked = 0
     local newlyApplied = 0
 
-    -- TargetSearchQuery has a hard limit of 128 items. We scan with two different
-    -- TSF masks to cover both puppet and device/vehicle collision types.
-    local function QueryMask(maskValue)
-        local searchQuery = TargetSearchQuery.new()
-        searchQuery.maxDistance = 800
-        searchQuery.testedSet = "Complete" -- 360-degree scan, not frustum-only
-        searchQuery.filterObjectByDistance = true
-        searchQuery.ignoreInstigator = true
-        searchQuery.searchFilter = Game.TSF_Any(maskValue)
+    for _, part in ipairs(parts) do
+        local entity = part:GetComponent():GetEntity()
+        if entity and entity:IsVehicle() then
+            vehiclesFound = vehiclesFound + 1
+            local entId = tostring(entity:GetEntityID().hash)
 
-        local success, parts = Game.GetTargetingSystem():GetTargetParts(player, searchQuery)
-        if success and parts then
-            for _, part in ipairs(parts) do
-                totalEntities = totalEntities + 1
-                local entity = part:GetComponent():GetEntity()
-                if entity and entity:IsVehicle() then
-                    vehiclesFound = vehiclesFound + 1
-                    local entId = tostring(entity:GetEntityID().hash)
-
-                    if appliedVehicles[entId] then
-                        alreadyApplied = alreadyApplied + 1
-                    elseif not entity:GetAIComponent() then
-                        skippedParked = skippedParked + 1
-                    else
-                        VehicleDilation.ApplyAutonomousDrive(entity, speedMult)
-                        newlyApplied = newlyApplied + 1
-                    end
+            if appliedVehicles[entId] then
+                alreadyApplied = alreadyApplied + 1
+            else
+                -- Active traffic has an AI component; parked and decoration cars do not.
+                -- GetCurrentSpeed() cannot tell them apart, because crowd vehicles report ~0.
+                local aiComp = entity:GetAIComponent()
+                if aiComp then
+                    ApplyAutonomousDrive(entity, aiComp, entId, speedMult)
+                    newlyApplied = newlyApplied + 1
+                else
+                    skippedParked = skippedParked + 1
                 end
             end
         end
     end
 
-    QueryMask(8) -- Obj_Device (vehicles). Obj_Puppet (2) removed — it only found pedestrians.
-
     -- Log scan summary once per second (not every tick)
     if newlyApplied > 0 or logTimer >= 1.0 then
         print(string.format(
-            "[Time-lapse][VD] Scan: %d entities | %d vehicles (new:%d tracked:%d noAI:%d)",
-            totalEntities, vehiclesFound, newlyApplied, alreadyApplied, skippedParked))
+            "[Time-lapse][VD] Scan: %d parts | %d vehicles (new:%d tracked:%d noAI:%d)",
+            #parts, vehiclesFound, newlyApplied, alreadyApplied, skippedParked))
         logTimer = 0
     end
 end
@@ -374,7 +271,7 @@ function VehicleDilation.Update(deltaTime, speedMult)
     logTimer = logTimer + deltaTime
     if scanTimer >= 0.1 then -- Scan every 100ms
         scanTimer = 0
-        VehicleDilation.ScanAndApply(speedMult)
+        ScanAndApply(speedMult)
     end
 end
 
@@ -384,11 +281,6 @@ function VehicleDilation.Stop()
     RestoreINI()
     appliedVehicles = {}
     scanTimer = 0
-end
-
---- Alias for Stop(); also used as a safety reset.
-function VehicleDilation.Reset()
-    VehicleDilation.Stop()
 end
 
 return VehicleDilation

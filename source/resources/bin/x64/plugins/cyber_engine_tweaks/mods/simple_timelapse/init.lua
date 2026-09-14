@@ -12,6 +12,7 @@ local UI = require("Modules/UI")
 local HudUtils = require("Modules/HudUtils")
 local CameraUtils = require("Modules/CameraUtils")
 local VehicleDilation = require("Modules/VehicleDilation")
+local Settings = require("Modules/Settings")
 
 local mod = {
     version = "v1.3.0",
@@ -71,6 +72,8 @@ local mod = {
     }
 }
 
+Settings.Init(mod)
+
 -- =================================================================
 -- ### REGISTRATION ###
 -- =================================================================
@@ -88,10 +91,12 @@ registerHotkey("ToggleHUD", "Toggle HUD", function()
 end)
 
 registerForEvent("onInit", function()
+    Settings.Load(mod, Core)
     print("[Simple Time-lapse] Initialized (" .. mod.version .. ")")
 end)
 
 registerForEvent("onShutdown", function()
+    Settings.Save(mod)
     if mod.hudHidden then
         HudUtils.Restore(mod)
     end
@@ -100,7 +105,10 @@ registerForEvent("onShutdown", function()
 end)
 
 registerForEvent("onOverlayOpen", function() mod.isOverlayOpen = true end)
-registerForEvent("onOverlayClose", function() mod.isOverlayOpen = false end)
+registerForEvent("onOverlayClose", function()
+    mod.isOverlayOpen = false
+    Settings.Save(mod)
+end)
 -- Pass CameraUtils to UI so debug buttons and Start/Stop work
 registerForEvent("onDraw", function() UI.Draw(mod, Core, HudUtils, CameraUtils) end)
 

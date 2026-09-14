@@ -46,8 +46,7 @@ function UI.Draw(mod, Core, HudUtils, CameraUtils)
                     ImGui.TextWrapped(IconGlyphs.MovieRoll .. " Time-lapse Mode")
                     if ImGui.RadioButton("Simulation (Standard)", mod.settings.mode == 0) then
                         mod.settings.mode = 0
-                        local limit = 10.0; if mod.settings.unlockSpeed then limit = 100.0 end
-                        if mod.settings.speed > limit then mod.settings.speed = limit end
+                        Core.ClampSpeed(mod)
                     end
                     if ImGui.IsItemHovered() then
                         ImGui.SetTooltip(
@@ -122,17 +121,12 @@ function UI.Draw(mod, Core, HudUtils, CameraUtils)
                     ImGui.TextWrapped(IconGlyphs.Speedometer .. " Dilation Speed (Multiplier)")
                     ImGui.SetNextItemWidth(bodyW)
 
-                    local maxSpeed = 10.0
+                    local maxSpeed = Core.GetMaxSpeed(mod)
                     local speedTooltip = "0 = Pause | 0.5x = Half Speed | 1x = Normal | 10x = Max Efficient Speed"
 
                     if mod.settings.mode == 1 then
-                        -- Mode 1: Clock Mode (High Speed allowed)
-                        maxSpeed = 10000.0
                         speedTooltip =
                         "Controls how fast the clock moves.\n1x = Real Time | 60x = 1 Game Minute per Real Second | 3600x = 1 Game Hour per Real Second"
-                    elseif mod.settings.unlockSpeed then
-                        -- Mode 0: Unlocked Dilation
-                        maxSpeed = 100.0
                     end
 
                     local newSpeed, speedChanged = ImGui.SliderFloat("##SpeedSlider", mod.settings.speed, 0.0, maxSpeed,
@@ -287,7 +281,7 @@ function UI.Draw(mod, Core, HudUtils, CameraUtils)
                 ImGui.TextWrapped(IconGlyphs.LockOpen .. " Simulation Limits")
                 local unlock, changed = ImGui.Checkbox("Unlock Speed Limit (Max 100x)", mod.settings.unlockSpeed)
                 if changed then
-                    mod.settings.unlockSpeed = unlock; if not unlock and mod.settings.speed > 10.0 then mod.settings.speed = 10.0 end
+                    mod.settings.unlockSpeed = unlock; Core.ClampSpeed(mod)
                 end
 
                 if mod.settings.unlockSpeed then

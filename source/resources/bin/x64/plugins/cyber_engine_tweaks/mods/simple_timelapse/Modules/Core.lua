@@ -173,6 +173,17 @@ end
 -- ### START / STOP LOGIC ###
 -- =================================================================
 
+--- Highest speed the current mode allows: Clock 10000x, Simulation 10x, or 100x unlocked.
+function Core.GetMaxSpeed(mod)
+    if mod.settings.mode == 1 then return 10000.0 end
+    if mod.settings.unlockSpeed then return 100.0 end
+    return 10.0
+end
+
+function Core.ClampSpeed(mod)
+    mod.settings.speed = math.max(0.0, math.min(mod.settings.speed, Core.GetMaxSpeed(mod)))
+end
+
 function Core.RecalcDuration(mod)
     local mult = 1.0
     if mod.ui.durationUnit == 1 then mult = 60.0 end

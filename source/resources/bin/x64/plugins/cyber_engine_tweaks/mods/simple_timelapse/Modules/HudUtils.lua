@@ -4,54 +4,45 @@
 -- Author:       Spuddeh
 --
 -- DESCRIPTION:
--- Handles the saving, hiding, and restoring of HUD elements.
--- Relies on GameSettings.lua for recursive logic.
---
--- CREDITS:
--- - Logic inspired by "SimpleToggleHUD" by Mokuppo.
--- - Built using CET Kit by psiberx.
+-- Hides and restores the HUD by pushing the game's Empty UI context. Every HUD widget
+-- in prototype_hud.inkhud masks that context out except the FPS counter, so one push
+-- hides the HUD, notifications included, and one pop restores it. No user setting changes.
+-- A context the game pushes on top (scanner, popups, vehicles) decides visibility until it pops.
 -- ======================================================================================
 
-local GameSettings = require("Modules/GameSettings")
 local Log = require("Modules/Log")
 local HudUtils = {}
 
---- Gets the native HUD group object safely.
-function HudUtils.GetHudGroup()
-    local sys = Game.GetSettingsSystem()
-    if not sys then return nil end
-    return sys:GetGroup(CName.new('/interface/hud'))
+local function EmptyContext()
+    return Enum.new("UIGameContext", "Empty")
 end
 
---- Hides the HUD after saving a snapshot.
 function HudUtils.Hide(mod)
-    local hudGroup = HudUtils.GetHudGroup()
-    if hudGroup then
-        if not mod.hudHidden then
-            mod.hudSettingsSnapshot = GameSettings.ExportVars(nil, hudGroup)
-        end
+    if mod.hudHidden then return end
+    local uiSystem = Game.GetUISystem()
+    if not uiSystem then return end
 
-        GameSettings.SetGroupBool('/interface/hud', false)
-
-        mod.hudHidden = true
-        Log.Debug("HUD hidden, snapshot saved")
-    end
+    uiSystem:PushGameContext(EmptyContext())
+    mod.hudHidden = true
+    Log.Debug("HUD hidden")
 end
 
---- Restores the HUD from snapshot.
 function HudUtils.Restore(mod)
-    GameSettings.ImportVars(mod.hudSettingsSnapshot)
+    if not mod.hudHidden then return end
+    local uiSystem = Game.GetUISystem()
+    if not uiSystem then return end
 
+    uiSystem:PopGameContext(EmptyContext())
     mod.hudHidden = false
     Log.Debug("HUD restored")
 end
 
---- Force Restore (Panic Button).
+--- Panic button: pops the Empty context whether or not this mod thinks it pushed one.
 function HudUtils.ForceRestore(mod)
-    GameSettings.SetGroupBool('/interface/hud', true)
-
+    local uiSystem = Game.GetUISystem()
+    if uiSystem then uiSystem:PopGameContext(EmptyContext()) end
     mod.hudHidden = false
-    Log.Debug("HUD forced fully on")
+    Log.Debug("HUD forced back on")
 end
 
 function HudUtils.Toggle(mod)

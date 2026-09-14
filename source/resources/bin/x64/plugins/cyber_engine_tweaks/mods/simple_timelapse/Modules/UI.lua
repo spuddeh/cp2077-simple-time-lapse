@@ -331,7 +331,7 @@ function UI.Draw(mod, Core, HudUtils, CameraUtils)
                 end
                 if ImGui.IsItemHovered() then
                     ImGui.SetTooltip(
-                        "Forces all HUD elements to VISIBLE, ignoring snapshots. Use if the HUD gets stuck hidden.")
+                        "Brings the HUD back even if the mod has lost track of hiding it. Use if the HUD stays hidden after a time-lapse.")
                 end
 
                 if requireSameLine then ImGui.SameLine() end

@@ -27,7 +27,6 @@ local mod = {
 
     -- HUD State
     hudHidden = false,
-    hudSettingsSnapshot = {},
 
     -- Camera State
     cameraPath = nil,

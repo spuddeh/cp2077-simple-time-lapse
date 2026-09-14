@@ -28,6 +28,7 @@ local mod = {
 
     -- HUD State
     hudHidden = false,
+    runHidHud = false, -- true while the current run is the one that hid the HUD
 
     -- Camera State
     cameraPath = nil,

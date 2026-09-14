@@ -202,7 +202,7 @@ function UI.Draw(mod, Core, HudUtils, CameraUtils)
                         "Show status notifications on the left side of the screen.")
                     check(IconGlyphs.VolumeHigh .. " Audio Cues", "playAudio", "Play sound effects for the countdown.")
                     check(IconGlyphs.EyeOff .. " Auto-Hide HUD", "autoHideHud",
-                        "If checked, HUD is hidden automatically on start. \nDISABLES the manual toggle button below.\n\nNOTE: Using the Toggle HUD hotkey will uncheck this.")
+                        "Hides the HUD and notifications when the time-lapse starts, and shows them again when it stops.\nThe Toggle HUD hotkey and the button below still work at any time.")
                     check(IconGlyphs.CameraOutline .. " No Head Bob", "disableHeadBob",
                         "Disables Additive Camera Motions (Head Bobbing) during time-lapse for a steady shot.")
 
@@ -245,9 +245,7 @@ function UI.Draw(mod, Core, HudUtils, CameraUtils)
                     local hudLabel = IconGlyphs.EyeOff .. " Hide HUD"
                     if mod.hudHidden then hudLabel = IconGlyphs.Eye .. " Restore HUD" end
 
-                    if mod.settings.autoHideHud then ImGui.BeginDisabled() end
                     if ImGui.Button(hudLabel, -1, 0) then HudUtils.Toggle(mod) end
-                    if mod.settings.autoHideHud then ImGui.EndDisabled() end
                 end
                 ImGui.EndChild() -- End Body
 

@@ -46,11 +46,6 @@ function HudUtils.ForceRestore(mod)
 end
 
 function HudUtils.Toggle(mod)
-    if mod.settings.autoHideHud then
-        mod.settings.autoHideHud = false
-        Log.Debug("Auto-Hide HUD turned off by the Toggle HUD hotkey")
-    end
-
     if mod.hudHidden then
         HudUtils.Restore(mod)
     else

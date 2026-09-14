@@ -215,8 +215,10 @@ function Core.ExecuteStart(mod, HudUtils)
         mod.settings.duration, Core.GetEstimatedData(mod).endTime)
     Core.PlaySound(mod, "ui_menu_click")
 
+    -- A HUD the player already hid is left to them, and Stop does not show it.
     if mod.settings.autoHideHud and not mod.hudHidden then
         HudUtils.Hide(mod)
+        mod.runHidHud = true
     end
 
     if mod.settings.disableHeadBob then
@@ -267,8 +269,9 @@ function Core.Stop(mod, HudUtils)
 
     VehicleDilation.Stop()
 
-    if mod.settings.autoHideHud and mod.hudHidden then
+    if mod.runHidHud then
         HudUtils.Restore(mod)
+        mod.runHidHud = false
     end
 
     CameraUtils.Restore(mod)

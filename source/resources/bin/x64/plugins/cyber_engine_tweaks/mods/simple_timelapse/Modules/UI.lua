@@ -10,6 +10,7 @@
 
 local Log = require("Modules/Log")
 local Settings = require("Modules/Settings")
+local AudioUtils = require("Modules/AudioUtils")
 
 local UI = {}
 
@@ -188,6 +189,13 @@ local function DrawSettingsTab(mod, Core, HudUtils, c, spacing)
         check(IconGlyphs.MessageTextOutline .. " Messages", "showMessages",
             "Show status notifications on the left side of the screen.")
         check(IconGlyphs.VolumeHigh .. " Audio Cues", "playAudio", "Play sound effects for the countdown.")
+        check(IconGlyphs.RadioOff .. " Mute Radio", "muteRadio",
+            "Silences the Radioport and the car radio for the run, and puts both levels back on Stop.")
+        check(IconGlyphs.MusicNoteOff .. " Mute Music", "muteMusic",
+            "Silences the game's own score for the run.")
+        check(IconGlyphs.VolumeOff .. " Mute Sound Effects", "muteSfx",
+            "Silences sound effects for the run, city ambience and this mod's own cues included.\n" ..
+            "Use it to keep a call or a message alert off a recording.")
         check(IconGlyphs.EyeOff .. " Auto-Hide HUD", "autoHideHud",
             "Hides the HUD and notifications when the time-lapse starts, and shows them again when it stops.\nThe Toggle HUD hotkey and the button below still work at any time.")
         check(IconGlyphs.CameraOutline .. " No Head Bob", "disableHeadBob",
@@ -290,6 +298,11 @@ local function DrawDebugTab(mod, Core, HudUtils, CameraUtils)
             label = IconGlyphs.Eye .. " Force Restore HUD",
             tooltip = "Brings the HUD back even if the mod has lost track of hiding it. Use if the HUD stays hidden after a time-lapse.",
             onClick = function() HudUtils.ForceRestore(mod) end,
+        },
+        {
+            label = IconGlyphs.VolumeHigh .. " Restore Audio",
+            tooltip = "Puts every volume this mod can mute back to full. Use if sound is still muted after a time-lapse.",
+            onClick = function() AudioUtils.ForceRestore() end,
         },
         {
             label = IconGlyphs.Camera .. " Force Head Bob",

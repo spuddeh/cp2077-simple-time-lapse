@@ -61,6 +61,9 @@ local mod = {
         disableAirTraffic = false,
         disableCrowds = false,
         blockInCombat = true,
+        muteRadio = true,
+        muteMusic = false,
+        muteSfx = false,
 
         logLevel = Log.DEFAULT_LEVEL,
         forceVehicleDilation = false, -- Experimental

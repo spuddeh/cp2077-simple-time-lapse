@@ -32,6 +32,11 @@ function Log.IsLevel(name)
     return LEVEL_VALUE[name] ~= nil
 end
 
+--- True when Debug messages are written. Lets a caller skip work whose only output is a Debug line.
+function Log.IsDebug()
+    return currentLevel >= LEVEL_VALUE.Debug
+end
+
 --- Formats only when there are arguments, so a gated call costs no string work.
 local function Emit(tag, msg, ...)
     if select("#", ...) > 0 then msg = string.format(msg, ...) end

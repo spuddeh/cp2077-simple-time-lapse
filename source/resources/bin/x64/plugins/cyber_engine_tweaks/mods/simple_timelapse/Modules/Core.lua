@@ -12,6 +12,7 @@ local Log = require("Modules/Log")
 local VehicleDilation = require("Modules/VehicleDilation")
 local Cron = require("Modules/Cron")
 local Undo = require("Modules/Undo")
+local TimingProbe = require("Modules/TimingProbe")
 local Core = {}
 
 -- Seconds between the HUD returning and the "Time-lapse Finished" message and sound,
@@ -290,6 +291,7 @@ function Core.ExecuteStart(mod, HudUtils)
         Core.ApplyDilation(1.0)
     end
 
+    TimingProbe.Start()
     mod.elapsedTime = 0
     mod.isActive = true
     mod.lastRunStats.valid = false
@@ -402,6 +404,7 @@ function Core.Update(mod, delta, HudUtils)
         end
     elseif mod.isActive then
         mod.elapsedTime = mod.elapsedTime + delta
+        if mod.settings.mode == 0 then TimingProbe.Update(delta, mod.settings.speed) end
 
         -- MODE 1: CLOCK ADVANCEMENT
         if mod.settings.mode == 1 then

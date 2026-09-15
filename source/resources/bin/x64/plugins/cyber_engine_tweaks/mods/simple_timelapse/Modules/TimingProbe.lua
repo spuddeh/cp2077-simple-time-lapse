@@ -15,6 +15,7 @@ local Log = require("Modules/Log")
 local TimingProbe = {}
 
 local WINDOW_SECONDS = 1.0
+local GAP_SECONDS = 0.25 -- a frame this long means onUpdate stopped, or the game hitched
 
 local lastSim = nil
 local lastGame = nil
@@ -42,6 +43,10 @@ function TimingProbe.Update(delta, dilation)
 
     if lastSim then
         local simStep = sim - lastSim
+        if delta > GAP_SECONDS then
+            Log.Debug("Timing gap: one frame covered %.2f s real, %.2f s sim, %.1f s game",
+                delta, simStep, game - lastGame)
+        end
         window.frames = window.frames + 1
         window.real = window.real + delta
         window.sim = window.sim + simStep

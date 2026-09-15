@@ -210,6 +210,14 @@ end
 
 local AIR_TRAFFIC_FACT = "air_traffic_off"
 
+function Core.CountReenabled(mod, name)
+    local count = (mod.reenabled[name] or 0) + 1
+    mod.reenabled[name] = count
+    if count == 1 then
+        Log.Debug("%s was switched back on mid-run at %s, re-applied", name, Core.GetGameTimeStr())
+    end
+end
+
 function Core.DisableAirTraffic()
     local quests = Game.GetQuestsSystem()
     local before = quests:GetFactStr(AIR_TRAFFIC_FACT)
@@ -298,6 +306,7 @@ function Core.ExecuteStart(mod, HudUtils)
     end
 
     TimingProbe.Start()
+    mod.reenabled = {}
     mod.elapsedTime = 0
     mod.isActive = true
     mod.lastRunStats.valid = false
@@ -317,6 +326,11 @@ function Core.Stop(mod, HudUtils)
 
     -- Read before the undo list runs, because Restore Time moves the clock.
     local actualEndSeconds = Core.GetTotalGameSeconds()
+
+    if wasActive and mod.reenabled then
+        Log.Debug("Switched back on mid-run: crowds %d frames, air traffic %d frames",
+            mod.reenabled.crowds or 0, mod.reenabled.airTraffic or 0)
+    end
 
     Undo.RunAll()
 
@@ -441,11 +455,19 @@ function Core.Update(mod, delta, HudUtils)
 
         -- Re-applied every frame, and only when this run made the change, so a box ticked
         -- mid-run never writes a value that Stop has no snapshot for.
+        -- Each re-apply that found the value switched back is counted and reported at Stop.
         if Undo.Has("crowds") then
-            GameOptions.SetBool("Crowd", "Enabled", false)
+            if GameOptions.GetBool("Crowd", "Enabled") ~= false then
+                Core.CountReenabled(mod, "crowds")
+                GameOptions.SetBool("Crowd", "Enabled", false)
+            end
         end
         if Undo.Has("airTraffic") then
-            Game.GetQuestsSystem():SetFactStr(AIR_TRAFFIC_FACT, 1)
+            local quests = Game.GetQuestsSystem()
+            if quests:GetFactStr(AIR_TRAFFIC_FACT) ~= 1 then
+                Core.CountReenabled(mod, "airTraffic")
+                quests:SetFactStr(AIR_TRAFFIC_FACT, 1)
+            end
         end
         if VehicleDilation.IsRunning() then
             VehicleDilation.Update(delta, mod.settings.frenzySpeedMult)

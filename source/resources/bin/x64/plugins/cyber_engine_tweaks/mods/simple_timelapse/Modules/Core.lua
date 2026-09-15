@@ -11,6 +11,7 @@ local CameraUtils = require("Modules/CameraUtils")
 local Log = require("Modules/Log")
 local VehicleDilation = require("Modules/VehicleDilation")
 local Cron = require("Modules/Cron")
+local Undo = require("Modules/Undo")
 local Core = {}
 
 -- Seconds between the HUD returning and the "Time-lapse Finished" message and sound,
@@ -200,6 +201,29 @@ function Core.ApplyDilation(val)
     end
 end
 
+local AIR_TRAFFIC_FACT = "air_traffic_off"
+
+function Core.DisableAirTraffic()
+    local quests = Game.GetQuestsSystem()
+    local before = quests:GetFactStr(AIR_TRAFFIC_FACT)
+    if before == 1 then return end
+
+    quests:SetFactStr(AIR_TRAFFIC_FACT, 1)
+    Undo.Push("airTraffic", function()
+        local q = Game.GetQuestsSystem()
+        if q and q:GetFactStr(AIR_TRAFFIC_FACT) == 1 then q:SetFactStr(AIR_TRAFFIC_FACT, before) end
+    end)
+end
+
+function Core.DisableCrowds()
+    if GameOptions.GetBool("Crowd", "Enabled") == false then return end
+
+    GameOptions.SetBool("Crowd", "Enabled", false)
+    Undo.Push("crowds", function()
+        if GameOptions.GetBool("Crowd", "Enabled") == false then GameOptions.SetBool("Crowd", "Enabled", true) end
+    end)
+end
+
 function Core.ExecuteStart(mod, HudUtils)
     -- IMPORTANT: Set delaying to false immediately to prevent update loops if subsequent code crashes
     mod.isDelaying = false
@@ -215,29 +239,39 @@ function Core.ExecuteStart(mod, HudUtils)
         mod.settings.duration, Core.GetEstimatedData(mod).endTime)
     Core.PlaySound(mod, "ui_menu_click")
 
+    -- Every change below records its own undo, so Stop puts back only what this run changed.
     -- A HUD the player already hid is left to them, and Stop does not show it.
     if mod.settings.autoHideHud and not mod.hudHidden then
         HudUtils.Hide(mod)
-        mod.runHidHud = true
+        if mod.hudHidden then
+            mod.runHidHud = true
+            Undo.Push("hud", function()
+                if mod.runHidHud then
+                    HudUtils.Restore(mod)
+                    mod.runHidHud = false
+                end
+            end)
+        end
     end
 
     if mod.settings.disableHeadBob then
-        CameraUtils.Disable(mod)
+        CameraUtils.Disable()
     end
 
-    CameraUtils.LockPlayer(mod) -- Lock Controls
+    CameraUtils.LockPlayer(mod)
 
     if mod.settings.disableAirTraffic then
-        Game.GetQuestsSystem():SetFactStr("air_traffic_off", 1)
+        Core.DisableAirTraffic()
     end
 
     if mod.settings.disableCrowds then
-        GameOptions.SetBool("Crowd", "Enabled", false)
+        Core.DisableCrowds()
     end
 
     if mod.settings.mode == 0 then
         -- Mode 0: Simulation Speed (Time Dilation)
         Core.ApplyDilation(mod.settings.speed)
+        Undo.Push("dilation", function() Core.ApplyDilation(1.0) end)
     else
         -- Mode 1: Clock Speed (Manual Advancement)
         mod.clockAccumulator = 0.0
@@ -264,21 +298,7 @@ function Core.Stop(mod, HudUtils)
     mod.isDelaying = false
     mod.overlayMessage = nil
 
-    -- Always reset dilation, safe for both modes
-    Core.ApplyDilation(1.0)
-
-    VehicleDilation.Stop()
-
-    if mod.runHidHud then
-        HudUtils.Restore(mod)
-        mod.runHidHud = false
-    end
-
-    CameraUtils.Restore(mod)
-    CameraUtils.UnlockPlayer(mod) -- Unlock Controls
-
-    Game.GetQuestsSystem():SetFactStr("air_traffic_off", 0)
-    GameOptions.SetBool("Crowd", "Enabled", true)
+    Undo.RunAll()
 
     if wasActive and mod.elapsedTime > 0 then
         mod.finishMarkerTimer = Cron.After(FINISH_MARKER_DELAY, function()
@@ -310,6 +330,21 @@ function Core.Stop(mod, HudUtils)
             gameSecondsPassed, mod.elapsedTime,
             mod.settings.mode == 0 and "calibration factor" or "clock efficiency", factor)
     end
+end
+
+--- Puts back everything the run changed, plus a HUD the player hid by hand, with no
+--- finish marker or run stats. For session end and shutdown.
+function Core.Cleanup(mod, HudUtils)
+    mod.isActive = false
+    mod.isDelaying = false
+    mod.overlayMessage = nil
+    if mod.finishMarkerTimer then
+        Cron.Halt(mod.finishMarkerTimer)
+        mod.finishMarkerTimer = nil
+    end
+
+    Undo.RunAll()
+    if mod.hudHidden then HudUtils.Restore(mod) end
 end
 
 function Core.Start(mod, HudUtils)
@@ -380,14 +415,15 @@ function Core.Update(mod, delta, HudUtils)
             end
         end
 
-        -- Ensure toggles are aggressively applied during the timelapse
-        if mod.settings.disableCrowds then
+        -- Re-applied every frame, and only when this run made the change, so a box ticked
+        -- mid-run never writes a value that Stop has no snapshot for.
+        if Undo.Has("crowds") then
             GameOptions.SetBool("Crowd", "Enabled", false)
         end
-        if mod.settings.disableAirTraffic then
-            Game.GetQuestsSystem():SetFactStr("air_traffic_off", 1)
+        if Undo.Has("airTraffic") then
+            Game.GetQuestsSystem():SetFactStr(AIR_TRAFFIC_FACT, 1)
         end
-        if mod.settings.forceVehicleDilation and mod.settings.mode == 0 then
+        if VehicleDilation.IsRunning() then
             VehicleDilation.Update(delta, mod.settings.frenzySpeedMult)
         end
     end

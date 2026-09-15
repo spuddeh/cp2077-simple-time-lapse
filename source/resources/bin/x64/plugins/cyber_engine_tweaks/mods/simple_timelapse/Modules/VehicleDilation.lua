@@ -10,9 +10,11 @@
 -- ======================================================================================
 
 local Log = require("Modules/Log")
+local Undo = require("Modules/Undo")
 
 local VehicleDilation = {}
-local appliedVehicles = {} -- Tracks which vehicles have been given autonomous commands
+local running = false      -- True from Start until the run's undo releases the vehicles
+local appliedVehicles = {} -- EntityID of each vehicle given an autonomous command, keyed by hash
 local scanTimer = 0        -- Accumulates delta time until the next scan interval
 local logTimer = 0         -- Throttles scan summary logs to once per second
 
@@ -20,8 +22,8 @@ local logTimer = 0         -- Throttles scan summary logs to once per second
 -- ### INI OVERRIDES ###
 -- Each entry is snapshotted on Start and written back on Stop. An entry with `scale`
 -- is multiplied by the speed multiplier; an entry with `timelapse` is set to that value.
+-- An option the game does not expose is neither written nor restored.
 -- =========================================================================
-local savedOriginals = {}
 
 -- Spawning:
 --   DespawnLastSeenMinTime: Seconds an entity persists after leaving view. Lower = faster cleanup.
@@ -33,16 +35,16 @@ local savedOriginals = {}
 --   SafetyMeasureDistance: Buffer distance (metres) for safety checks.
 local iniOverrides = {
     -- Vehicle force-move caps
-    { group = "Vehicle", key = "ForceMoveToMaxLinearSpeed",  type = "float", baseline = 30.0,  scale = 1.0 },
-    { group = "Vehicle", key = "ForceMoveToMaxAngularSpeed", type = "float", baseline = 5.0,   scale = 0.5 },
+    { group = "Vehicle", key = "ForceMoveToMaxLinearSpeed",  type = "float", scale = 1.0 },
+    { group = "Vehicle", key = "ForceMoveToMaxAngularSpeed", type = "float", scale = 0.5 },
     -- Spawning
-    { group = "Crowd",   key = "DespawnLastSeenMinTime",     type = "float", baseline = 20.0,  timelapse = 5.0 },
-    { group = "Crowd",   key = "SpawnLimit",                 type = "int",   baseline = 1,     timelapse = 1 },
+    { group = "Crowd",   key = "DespawnLastSeenMinTime",     type = "float", timelapse = 5.0 },
+    { group = "Crowd",   key = "SpawnLimit",                 type = "int",   timelapse = 1 },
     -- Collision recovery
-    { group = "Vehicle", key = "DisableCollisionDamage",     type = "bool",  baseline = false, timelapse = true },
-    { group = "Traffic", key = "DisposeOnOverlap",           type = "bool",  baseline = false, timelapse = true },
-    { group = "Traffic", key = "SafetyMeasure",              type = "bool",  baseline = false, timelapse = true },
-    { group = "Traffic", key = "SafetyMeasureDistance",      type = "float", baseline = 0.5,   timelapse = 2.0 },
+    { group = "Vehicle", key = "DisableCollisionDamage",     type = "bool",  timelapse = true },
+    { group = "Traffic", key = "DisposeOnOverlap",           type = "bool",  timelapse = true },
+    { group = "Traffic", key = "SafetyMeasure",              type = "bool",  timelapse = true },
+    { group = "Traffic", key = "SafetyMeasureDistance",      type = "float", timelapse = 2.0 },
 }
 
 -- GameOptions getter/setter suffix for each entry type.
@@ -59,68 +61,55 @@ local function ReadOption(entry)
     return nil
 end
 
---- Writes an option and reads it back to confirm the game kept the value.
+local function SameValue(entry, a, b)
+    if a == nil or b == nil then return false end
+    if entry.type == "float" then return math.abs(a - b) < 0.01 end
+    return a == b
+end
+
+--- Writes an option and reads it back. Returns true if the game kept the value.
 local function WriteOption(entry, value)
     local ok, err = pcall(GameOptions["Set" .. TYPE_SUFFIX[entry.type]], entry.group, entry.key, value)
     if not ok then
         Log.Error("Traffic Frenzy could not write %s = %s: %s", PathOf(entry), tostring(value), tostring(err))
-        return
+        return false
     end
 
     local readback = ReadOption(entry)
-    local kept
-    if entry.type == "float" then
-        kept = readback ~= nil and math.abs(readback - value) < 0.01
-    else
-        kept = readback == value
-    end
-
-    if kept then
+    if SameValue(entry, readback, value) then
         Log.Debug("Traffic Frenzy: %s = %s", PathOf(entry), tostring(value))
-    else
-        Log.Warn("Traffic Frenzy: %s did not keep its value (wrote %s, read back %s)",
-            PathOf(entry), tostring(value), tostring(readback))
+        return true
     end
+    Log.Warn("Traffic Frenzy: %s did not keep its value (wrote %s, read back %s)",
+        PathOf(entry), tostring(value), tostring(readback))
+    return false
 end
 
 -- =========================================================================
--- ### SNAPSHOT / APPLY / RESTORE ###
+-- ### APPLY / RESTORE ###
 -- =========================================================================
 
---- Records the current value of every override, falling back to its baseline.
-local function SnapshotINI()
-    savedOriginals = {}
-    for _, entry in ipairs(iniOverrides) do
-        local current = ReadOption(entry)
-        if current == nil then current = entry.baseline end
-        savedOriginals[PathOf(entry)] = current
-        Log.Debug("Traffic Frenzy snapshot: %s = %s", PathOf(entry), tostring(current))
-    end
-end
-
---- Applies every override. Scaled entries are capped at 20x their snapshotted value.
+--- Applies every override the game exposes and records an undo for each one it kept.
+--- Scaled entries are capped at 20x their current value.
 local function ApplyINI(speedMult)
     Log.Debug("Traffic Frenzy: applying INI overrides for %.1fx", speedMult)
     for _, entry in ipairs(iniOverrides) do
-        if entry.scale then
-            local baseVal = savedOriginals[PathOf(entry)] or entry.baseline
-            local newVal = math.min(baseVal * speedMult * entry.scale, math.abs(baseVal) * 20.0)
-            WriteOption(entry, newVal)
+        local before = ReadOption(entry)
+        if before == nil then
+            Log.Warn("Traffic Frenzy: %s is not readable, left unchanged", PathOf(entry))
         else
-            WriteOption(entry, entry.timelapse)
+            local value = entry.timelapse
+            if entry.scale then
+                value = math.min(before * speedMult * entry.scale, math.abs(before) * 20.0)
+            end
+            if not SameValue(entry, before, value) and WriteOption(entry, value) then
+                -- A value changed mid-run belongs to whoever changed it.
+                Undo.Push("ini:" .. PathOf(entry), function()
+                    if SameValue(entry, ReadOption(entry), value) then WriteOption(entry, before) end
+                end)
+            end
         end
     end
-end
-
---- Writes every override back to its snapshotted value, or its baseline if none was taken.
-local function RestoreINI()
-    Log.Debug("Traffic Frenzy: restoring INI values")
-    for _, entry in ipairs(iniOverrides) do
-        local original = savedOriginals[PathOf(entry)]
-        if original == nil then original = entry.baseline end
-        WriteOption(entry, original)
-    end
-    savedOriginals = {}
 end
 
 -- =========================================================================
@@ -180,7 +169,7 @@ local function ApplyAutonomousDrive(vehicle, aiComp, entId, speedMult)
     evt.command = cmd
     vehicle:QueueEvent(evt)
 
-    appliedVehicles[entId] = true
+    appliedVehicles[entId] = vehicle:GetEntityID()
     Log.Debug("Traffic Frenzy: drive command on %s (%.0f -> %.0f m/s)", entId, currentSpeed, targetMaxSpeed)
 end
 
@@ -248,16 +237,39 @@ end
 -- ### PUBLIC API ###
 -- =========================================================================
 
+--- Hands every commanded vehicle that still exists back to the traffic system.
+local function ReleaseVehicles()
+    local released = 0
+    for _, entityID in pairs(appliedVehicles) do
+        local vehicle = Game.FindEntityByID(entityID)
+        local aiComp = vehicle and vehicle:GetAIComponent()
+        if aiComp then
+            aiComp:CancelOrInterruptCommand(CName.new("AIVehicleDriveToPointAutonomousCommand"), false, true)
+            aiComp:SendCommand(AIVehicleJoinTrafficCommand.new())
+            released = released + 1
+        end
+    end
+    Log.Debug("Traffic Frenzy: released %d vehicles", released)
+    appliedVehicles = {}
+    running = false
+end
+
 --- Called when the time-lapse starts with Traffic Frenzy enabled.
---- Snapshots Vehicle INI caps and applies overrides.
+--- Applies the INI overrides and records the undo that ends Traffic Frenzy.
 --- @param speedMult number The frenzySpeedMult from the UI slider
 function VehicleDilation.Start(speedMult)
     Log.Debug("Traffic Frenzy starting at %.1fx", speedMult)
-    SnapshotINI()
-    ApplyINI(speedMult)
     appliedVehicles = {}
     scanTimer = 0
     logTimer = 0
+    running = true
+    -- Pushed before the INI entries, so it runs after them.
+    Undo.Push("trafficFrenzy", ReleaseVehicles)
+    ApplyINI(speedMult)
+end
+
+function VehicleDilation.IsRunning()
+    return running
 end
 
 --- Called every frame while the time-lapse is active.
@@ -273,14 +285,6 @@ function VehicleDilation.Update(deltaTime, speedMult)
         scanTimer = 0
         ScanAndApply(speedMult)
     end
-end
-
---- Called when the time-lapse stops. Restores INI and clears tracking.
-function VehicleDilation.Stop()
-    Log.Debug("Traffic Frenzy stopping")
-    RestoreINI()
-    appliedVehicles = {}
-    scanTimer = 0
 end
 
 return VehicleDilation

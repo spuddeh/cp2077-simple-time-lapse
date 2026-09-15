@@ -11,10 +11,10 @@ local Core = require("Modules/Core")
 local UI = require("Modules/UI")
 local HudUtils = require("Modules/HudUtils")
 local CameraUtils = require("Modules/CameraUtils")
-local VehicleDilation = require("Modules/VehicleDilation")
 local Settings = require("Modules/Settings")
 local Log = require("Modules/Log")
 local Cron = require("Modules/Cron")
+local GameSession = require("Modules/GameSession")
 
 local mod = {
     version = "v1.3.0",
@@ -29,10 +29,6 @@ local mod = {
     -- HUD State
     hudHidden = false,
     runHidHud = false, -- true while the current run is the one that hid the HUD
-
-    -- Camera State
-    cameraPath = nil,
-    cameraSnapshot = nil,
 
     -- Debug/Stats
     startGameTime = 0,
@@ -95,16 +91,14 @@ end)
 registerForEvent("onInit", function()
     Settings.Load(mod, Core)
     Log.SetLevel(mod.settings.logLevel)
+    -- Loading a save or quitting to the menu ends the session without a Stop.
+    GameSession.OnEnd(function() Core.Cleanup(mod, HudUtils) end)
     Log.Info("Initialized (%s)", mod.version)
 end)
 
 registerForEvent("onShutdown", function()
     Settings.Save(mod)
-    if mod.hudHidden then
-        HudUtils.Restore(mod)
-    end
-    CameraUtils.Restore(mod)
-    CameraUtils.UnlockPlayer(mod)
+    Core.Cleanup(mod, HudUtils)
 end)
 
 registerForEvent("onOverlayOpen", function() mod.isOverlayOpen = true end)

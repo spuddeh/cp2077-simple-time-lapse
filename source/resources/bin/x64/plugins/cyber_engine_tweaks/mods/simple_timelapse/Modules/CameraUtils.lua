@@ -10,6 +10,7 @@
 
 local GameSettings = require("Modules/GameSettings")
 local Log = require("Modules/Log")
+local Undo = require("Modules/Undo")
 local CameraUtils = {}
 
 -- The game setting that controls additive camera movement (head bob / sway).
@@ -28,25 +29,23 @@ end
 -- ### HEAD BOBBING ###
 -- =================================================================
 
-function CameraUtils.Disable(mod)
-    -- Safely attempt to get the current setting
-    local success, val = pcall(function() return GameSettings.Get(CAMERA_PATH) end)
-
-    if success and val ~= nil then
-        mod.cameraSnapshot = val
-        GameSettings.Set(CAMERA_PATH, 0.0)
-        Log.Debug("Head bob disabled")
-    else
-        Log.Warn("Could not read %s, head bob left unchanged", CAMERA_PATH)
-    end
+local function IsZero(value)
+    return value ~= nil and math.abs(value) < 0.001
 end
 
-function CameraUtils.Restore(mod)
-    if mod.cameraSnapshot == nil then return end
+function CameraUtils.Disable()
+    local success, before = pcall(function() return GameSettings.Get(CAMERA_PATH) end)
+    if not success or before == nil then
+        Log.Warn("Could not read %s, head bob left unchanged", CAMERA_PATH)
+        return
+    end
+    if IsZero(before) then return end
 
-    pcall(function() GameSettings.Set(CAMERA_PATH, mod.cameraSnapshot) end)
-    mod.cameraSnapshot = nil
-    Log.Debug("Head bob restored")
+    GameSettings.Set(CAMERA_PATH, 0.0)
+    Log.Debug("Head bob disabled")
+    Undo.Push("headBob", function()
+        if IsZero(GameSettings.Get(CAMERA_PATH)) then GameSettings.Set(CAMERA_PATH, before) end
+    end)
 end
 
 function CameraUtils.ForceRestore(mod)
@@ -67,13 +66,24 @@ function CameraUtils.LockPlayer(mod)
 
     local ids = GetRestrictionIDs()
 
+    -- A restriction the player already has belongs to whatever applied it, and is left on.
+    local function Lock(name, id)
+        if ses:HasStatusEffect(entityID, id) then return end
+        ses:ApplyStatusEffect(entityID, id)
+        Undo.Push(name, function()
+            local p = Game.GetPlayer()
+            local s = Game.GetStatusEffectSystem()
+            if p and s then s:RemoveStatusEffect(p:GetEntityID(), id) end
+        end)
+    end
+
     if mod.settings.lockMovement then
-        ses:ApplyStatusEffect(entityID, ids.MOVE)
-        ses:ApplyStatusEffect(entityID, ids.COMBAT)
+        Lock("lockMovement", ids.MOVE)
+        Lock("lockCombat", ids.COMBAT)
     end
 
     if mod.settings.lockCamera then
-        ses:ApplyStatusEffect(entityID, ids.LOOK)
+        Lock("lockCamera", ids.LOOK)
     end
 end
 
@@ -95,17 +105,6 @@ function CameraUtils.UnlockCamera(mod)
     local ids = GetRestrictionIDs()
     ses:RemoveStatusEffect(player:GetEntityID(), ids.LOOK)
     Log.Debug("Camera unlocked")
-end
-
-function CameraUtils.UnlockPlayer(mod)
-    local player = Game.GetPlayer(); if not player then return end
-    local ses = Game.GetStatusEffectSystem(); if not ses then return end
-    local entityID = player:GetEntityID()
-
-    local ids = GetRestrictionIDs()
-    ses:RemoveStatusEffect(entityID, ids.MOVE)
-    ses:RemoveStatusEffect(entityID, ids.COMBAT)
-    ses:RemoveStatusEffect(entityID, ids.LOOK)
 end
 
 return CameraUtils

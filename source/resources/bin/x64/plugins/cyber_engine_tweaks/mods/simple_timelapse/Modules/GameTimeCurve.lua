@@ -4,15 +4,15 @@
 -- Author:       Spuddeh
 --
 -- DESCRIPTION:
--- The game clock gains 8 game seconds per simulation second, scaled by the hour-of-day
--- curve time_of_the_day_to_timescale in base\gameplay\game_time.curveset. Dawn and dusk
--- run at about 0.72. The points below are the vanilla file's; a mod that replaces the
--- curve makes every prediction here inaccurate.
+-- The game clock gains timeSystem.settings.realTimeMultiplier (8) game seconds per
+-- simulation second, scaled by time_of_the_day_to_timescale in game_time.curveset.
+-- The multiplier is read from TweakDB; the curve points are the vanilla file's, so a
+-- mod that replaces the curve makes every prediction here inaccurate.
 -- ======================================================================================
 
 local GameTimeCurve = {}
 
-local BASE_RATE = 8.0
+local VANILLA_RATE = 8.0
 
 -- { hour, scale }: a key, then two Bezier handles, then the next key. Each segment is
 -- evaluated with t linear between its two keys.
@@ -42,12 +42,21 @@ function GameTimeCurve.Scale(hour)
     return 1.0
 end
 
--- simAtMinute[m + 1] = simulation seconds from 00:00 to game minute m.
-local simAtMinute = { 0 }
-for m = 1, 1440 do
-    simAtMinute[m + 1] = simAtMinute[m] + 60 / (BASE_RATE * GameTimeCurve.Scale((m - 0.5) / 60))
+-- simAtMinute[m + 1] = simulation seconds from 00:00 to game minute m. Built on first use,
+-- because TweakDB is not readable while the mod's files load.
+local simAtMinute = nil
+local DAY_SIM = 0
+
+local function BuildTable()
+    local ok, rate = pcall(function() return TweakDB:GetFlat("timeSystem.settings.realTimeMultiplier") end)
+    if not ok or type(rate) ~= "number" or rate <= 0 then rate = VANILLA_RATE end
+
+    simAtMinute = { 0 }
+    for m = 1, 1440 do
+        simAtMinute[m + 1] = simAtMinute[m] + 60 / (rate * GameTimeCurve.Scale((m - 0.5) / 60))
+    end
+    DAY_SIM = simAtMinute[1441]
 end
-local DAY_SIM = simAtMinute[1441]
 
 local function SimAt(daySeconds)
     local minute = math.min(math.floor(daySeconds / 60), 1439)
@@ -68,6 +77,7 @@ end
 --- Game seconds the clock gains from `startSeconds` (any total, only the time of day is used)
 --- over `simSeconds` of simulation time, which is real seconds times the dilation.
 function GameTimeCurve.GameSecondsGained(startSeconds, simSeconds)
+    if not simAtMinute then BuildTable() end
     local start = startSeconds % 86400
     local target = SimAt(start) + simSeconds
     local days = math.floor(target / DAY_SIM)

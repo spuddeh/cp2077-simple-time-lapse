@@ -144,8 +144,7 @@ function Core.GetEstimatedData(mod)
     local addedGameSeconds = 0
     if mod.settings.mode == 0 then
         -- Mode 0: Simulation (Dilation). Game time follows the vanilla hour-of-day curve.
-        local effectiveSpeed = math.min(mod.settings.speed, Core.GetMaxSpeed(mod))
-        addedGameSeconds = GameTimeCurve.GameSecondsGained(startSecs, mod.settings.duration * effectiveSpeed)
+        addedGameSeconds = GameTimeCurve.GameSecondsGained(startSecs, mod.settings.duration * Core.EffectiveDilation(mod))
     else
         -- Mode 1: Clock Only
         -- Speed = Game Seconds added per Real Second
@@ -179,6 +178,14 @@ function Core.GetMaxSpeed(mod)
     if mod.settings.mode == 1 then return 10000.0 end
     if mod.settings.unlockSpeed then return 100.0 end
     return 10.0
+end
+
+-- The engine runs the simulation at no more than 10x, whatever SetTimeDilation is given.
+local ENGINE_MAX_DILATION = 10.0
+
+--- The dilation a Simulation run actually gets.
+function Core.EffectiveDilation(mod)
+    return math.min(mod.settings.speed, ENGINE_MAX_DILATION)
 end
 
 function Core.ClampSpeed(mod)
@@ -328,8 +335,7 @@ function Core.Stop(mod, HudUtils)
         -- Clock: game time gained against speed times real time.
         local expected
         if mod.settings.mode == 0 then
-            local effectiveSpeed = math.min(mod.settings.speed, Core.GetMaxSpeed(mod))
-            expected = GameTimeCurve.GameSecondsGained(mod.startGameTime, mod.elapsedTime * effectiveSpeed)
+            expected = GameTimeCurve.GameSecondsGained(mod.startGameTime, mod.elapsedTime * Core.EffectiveDilation(mod))
         else
             expected = mod.elapsedTime * mod.settings.speed
         end

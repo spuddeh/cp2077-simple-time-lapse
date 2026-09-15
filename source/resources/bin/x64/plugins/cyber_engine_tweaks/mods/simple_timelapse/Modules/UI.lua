@@ -243,6 +243,9 @@ local function DrawSettingsTab(mod, Core, HudUtils, c, spacing)
 
     ImGui.TextWrapped("Est. Game Time at End: ")
     ImGui.SameLine(); ImGui.TextColored(0, 1, 1, 1, estData.endTime)
+    if mod.settings.mode == 0 and ImGui.IsItemHovered() then
+        ImGui.SetTooltip("The game clock runs slower around dawn and dusk. The estimate uses the vanilla day curve,\nso a mod that changes the length of the day makes it inaccurate.")
+    end
 
     ImGui.TextWrapped("Total Game Time Passed: ")
     ImGui.SameLine(); ImGui.TextColored(0, 1, 0, 1, estData.durStr)
@@ -325,16 +328,16 @@ local function DrawDebugTab(mod, Core, HudUtils, CameraUtils)
         ImGui.TextWrapped(string.format("Speed Setting:      %.1fx", mod.lastRunStats.speedSetting))
         ImGui.TextWrapped(string.format("Real Duration:      %.2fs", mod.lastRunStats.durationReal))
         ImGui.TextWrapped(string.format("Game Time Passed:   %.0fs", mod.lastRunStats.timePassedGame))
+        ImGui.TextWrapped(string.format("Game Time Expected: %.0fs", mod.lastRunStats.timeExpectedGame))
 
-        if mod.settings.mode == 0 then
-            -- Mode 0: Calibration Factor (Target ~8.0)
-            ImGui.Spacing(); ImGui.TextWrapped("Engine Calibration Factor:"); ImGui.SameLine()
+        if mod.lastRunStats.mode == 0 then
+            ImGui.Spacing(); ImGui.TextWrapped("Day Curve Match:"); ImGui.SameLine()
             local f = mod.lastRunStats.factor; local col = { 0, 1, 0, 1 }
-            if f < 7.5 then col = { 1, 1, 0, 1 } end; if f < 2.0 then col = { 1, 0.5, 0, 1 } end
-            ImGui.TextColored(col[1], col[2], col[3], col[4], string.format("%.4f", f))
+            if math.abs(f - 1) > 0.02 then col = { 1, 1, 0, 1 } end; if math.abs(f - 1) > 0.1 then col = { 1, 0.5, 0, 1 } end
+            ImGui.TextColored(col[1], col[2], col[3], col[4], string.format("%.1f%%", f * 100))
             ImGui.Spacing(); ImGui.PushTextWrapPos(0.0)
             ImGui.TextDisabled(
-                "Note: A factor of ~8.0 means the engine is running perfectly linear. Lower values indicate the physics engine has hit its simulation speed cap.")
+                "Note: The game clock gains 8 game seconds per simulated second, slowed to about 72% around dawn and dusk. 100% means the run matched the vanilla day curve built into the mod. A mod that changes the length of the day moves this away from 100%, and runs under a few seconds read rough because game time is counted in whole seconds.")
             ImGui.PopTextWrapPos()
         else
             -- Mode 1: Efficiency (Target ~1.0)

@@ -13,6 +13,7 @@ local VehicleDilation = require("Modules/VehicleDilation")
 local Cron = require("Modules/Cron")
 local Undo = require("Modules/Undo")
 local TimingProbe = require("Modules/TimingProbe")
+local GameTimeCurve = require("Modules/GameTimeCurve")
 local Core = {}
 
 -- Seconds between the HUD returning and the "Time-lapse Finished" message and sound,
@@ -142,10 +143,9 @@ function Core.GetEstimatedData(mod)
 
     local addedGameSeconds = 0
     if mod.settings.mode == 0 then
-        -- Mode 0: Simulation (Dilation)
-        -- 1x Dilation = Normal Game Speed (~8 Game Seconds per Real Second)
+        -- Mode 0: Simulation (Dilation). Game time follows the vanilla hour-of-day curve.
         local effectiveSpeed = math.min(mod.settings.speed, Core.GetMaxSpeed(mod))
-        addedGameSeconds = mod.settings.duration * effectiveSpeed * 8.0
+        addedGameSeconds = GameTimeCurve.GameSecondsGained(startSecs, mod.settings.duration * effectiveSpeed)
     else
         -- Mode 1: Clock Only
         -- Speed = Game Seconds added per Real Second
@@ -323,23 +323,30 @@ function Core.Stop(mod, HudUtils)
 
         -- Calculate the run stats.
         local gameSecondsPassed = actualEndSeconds - mod.startGameTime
-        local factor = 0
-        local ratio = 0
-        if mod.elapsedTime > 0 then ratio = gameSecondsPassed / mod.elapsedTime end
 
-        if mod.settings.speed > 0 then
-            factor = ratio / mod.settings.speed
+        -- Simulation: game time gained against the vanilla curve's prediction.
+        -- Clock: game time gained against speed times real time.
+        local expected
+        if mod.settings.mode == 0 then
+            local effectiveSpeed = math.min(mod.settings.speed, Core.GetMaxSpeed(mod))
+            expected = GameTimeCurve.GameSecondsGained(mod.startGameTime, mod.elapsedTime * effectiveSpeed)
+        else
+            expected = mod.elapsedTime * mod.settings.speed
         end
+        local factor = 0
+        if expected > 0 then factor = gameSecondsPassed / expected end
 
+        mod.lastRunStats.mode = mod.settings.mode
         mod.lastRunStats.speedSetting = mod.settings.speed
         mod.lastRunStats.durationReal = mod.elapsedTime
         mod.lastRunStats.timePassedGame = gameSecondsPassed
+        mod.lastRunStats.timeExpectedGame = expected
         mod.lastRunStats.factor = factor
         mod.lastRunStats.valid = true
 
-        Log.Info("Stopped: %.2f game seconds in %.2f real seconds, %s %.4f",
-            gameSecondsPassed, mod.elapsedTime,
-            mod.settings.mode == 0 and "calibration factor" or "clock efficiency", factor)
+        Log.Info("Stopped: %.2f game seconds in %.2f real seconds, expected %.2f, %s %.1f%%",
+            gameSecondsPassed, mod.elapsedTime, expected,
+            mod.settings.mode == 0 and "curve match" or "clock efficiency", factor * 100)
     end
 end
 

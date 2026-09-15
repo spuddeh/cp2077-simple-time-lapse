@@ -229,7 +229,16 @@ function Core.ExecuteStart(mod, HudUtils)
     mod.isDelaying = false
 
     Core.RecalcDuration(mod)
-    if mod.settings.useStartTime then Core.SetTimeNow(mod) end
+    if mod.settings.useStartTime then
+        local timeBefore = Core.GetTotalGameSeconds()
+        Core.SetTimeNow(mod)
+        if mod.settings.restoreTime then
+            Undo.Push("time", function()
+                local ts = Game.GetTimeSystem()
+                if ts then ts:SetGameTimeBySeconds(timeBefore) end
+            end)
+        end
+    end
 
     mod.startGameTime = Core.GetTotalGameSeconds()
     local startStr = Core.FormatSecondsToTime(mod.startGameTime)
@@ -298,6 +307,9 @@ function Core.Stop(mod, HudUtils)
     mod.isDelaying = false
     mod.overlayMessage = nil
 
+    -- Read before the undo list runs, because Restore Time moves the clock.
+    local actualEndSeconds = Core.GetTotalGameSeconds()
+
     Undo.RunAll()
 
     if wasActive and mod.elapsedTime > 0 then
@@ -306,9 +318,6 @@ function Core.Stop(mod, HudUtils)
             Core.Notify(mod, "Time-lapse Finished")
             Core.PlaySound(mod, "ui_hacking_access_granted")
         end)
-
-        local actualEndSeconds = Core.GetTotalGameSeconds()
-        local actualEndStr = Core.FormatSecondsToTime(actualEndSeconds)
 
         -- Calculate the run stats.
         local gameSecondsPassed = actualEndSeconds - mod.startGameTime

@@ -50,6 +50,7 @@ local mod = {
         speed = 5.0,
         duration = 10.0,
         useStartTime = false,
+        restoreTime = false,
         startDelay = 3.0,
         autoHideHud = true,
         disableHeadBob = true,

@@ -177,8 +177,12 @@ local function DrawSettingsTab(mod, Core, HudUtils, c, spacing)
             curX = curX + w + spacing
         end
 
-        check(IconGlyphs.History .. " Jump to Start", "useStartTime",
+        check(IconGlyphs.History .. " Set Time on Start", "useStartTime",
             "When time-lapse starts, instantly set game time to the Hour/Minute selected above.")
+        if mod.settings.useStartTime then
+            check(IconGlyphs.Restore .. " Restore Time on Stop", "restoreTime",
+                "When time-lapse stops, sets the game time back to what it was before Start.")
+        end
         check(IconGlyphs.MessageTextOutline .. " Messages", "showMessages",
             "Show status notifications on the left side of the screen.")
         check(IconGlyphs.VolumeHigh .. " Audio Cues", "playAudio", "Play sound effects for the countdown.")

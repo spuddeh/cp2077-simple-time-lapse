@@ -207,6 +207,7 @@ end
 
 function Core.DisableAirTraffic()
     local quests = Game.GetQuestsSystem()
+    if not quests then return end
     local before = quests:GetFactStr(AIR_TRAFFIC_FACT)
     if before == 1 then return end
 
@@ -226,11 +227,41 @@ function Core.DisableCrowds()
     end)
 end
 
-function Core.ExecuteStart(mod, HudUtils)
-    -- IMPORTANT: Set delaying to false immediately to prevent update loops if subsequent code crashes
-    mod.isDelaying = false
+--- Warns and returns true when Block Start in Combat refuses a start.
+local function RefusedInCombat(mod)
+    if not (mod.settings.blockInCombat and Core.IsCombatActive()) then return false end
+    Core.NotifyWarning(mod, "Cannot start Time-lapse during Combat!")
+    Log.Info("Start refused: player is in combat")
+    return true
+end
 
+local ApplyStart
+
+--- Starts the run. A start that throws partway runs the undo list, so nothing it changed is left behind.
+function Core.ExecuteStart(mod, HudUtils)
+    mod.isDelaying = false
+    if RefusedInCombat(mod) then return end
+
+    local ok, err = pcall(ApplyStart, mod, HudUtils)
+    if not ok then
+        mod.isActive = false
+        Undo.RunAll()
+        Log.Error("Start failed, every change undone: %s", tostring(err))
+        Core.NotifyWarning(mod, "Time-lapse could not start")
+    end
+end
+
+ApplyStart = function(mod, HudUtils)
     Core.RecalcDuration(mod)
+
+    -- The run reads these, never mod.settings, so the controls cannot change a run in progress.
+    mod.run = {
+        mode = mod.settings.mode,
+        speed = mod.settings.speed,
+        dilation = Core.EffectiveDilation(mod),
+        frenzySpeedMult = mod.settings.frenzySpeedMult,
+    }
+
     if mod.settings.useStartTime then
         local timeBefore = Core.GetTotalGameSeconds()
         Core.SetTimeNow(mod)
@@ -246,7 +277,7 @@ function Core.ExecuteStart(mod, HudUtils)
     local startStr = Core.FormatSecondsToTime(mod.startGameTime)
 
     Log.Info("Started: %s mode, %.1fx, start %s, duration %.2fs, est. end %s",
-        mod.settings.mode == 0 and "Simulation" or "Clock", mod.settings.speed, startStr,
+        mod.run.mode == 0 and "Simulation" or "Clock", mod.run.speed, startStr,
         mod.settings.duration, Core.GetEstimatedData(mod).endTime)
     Core.PlaySound(mod, "ui_menu_click")
 
@@ -279,9 +310,9 @@ function Core.ExecuteStart(mod, HudUtils)
         Core.DisableCrowds()
     end
 
-    if mod.settings.mode == 0 then
+    if mod.run.mode == 0 then
         -- Mode 0: Simulation Speed (Time Dilation)
-        Core.ApplyDilation(mod.settings.speed)
+        Core.ApplyDilation(mod.run.dilation)
         Undo.Push("dilation", function() Core.ApplyDilation(1.0) end)
     else
         -- Mode 1: Clock Speed (Manual Advancement)
@@ -299,9 +330,9 @@ function Core.ExecuteStart(mod, HudUtils)
     mod.lastRunStats.valid = false
     mod.overlayMessage = nil
 
-    if mod.settings.forceVehicleDilation and mod.settings.mode == 0 then
-        VehicleDilation.Start(mod.settings.frenzySpeedMult)
-        Log.Info("Traffic Frenzy active at %.1fx", mod.settings.frenzySpeedMult)
+    if mod.settings.forceVehicleDilation and mod.run.mode == 0 then
+        VehicleDilation.Start(mod.run.frenzySpeedMult)
+        Log.Info("Traffic Frenzy active at %.1fx", mod.run.frenzySpeedMult)
     end
 end
 
@@ -353,25 +384,27 @@ function Core.Stop(mod, HudUtils)
         -- Simulation: game time gained against the vanilla curve's prediction.
         -- Clock: game time gained against speed times real time.
         local expected
-        if mod.settings.mode == 0 then
-            expected = GameTimeCurve.GameSecondsGained(mod.startGameTime, mod.elapsedTime * Core.EffectiveDilation(mod))
+        if mod.run.mode == 0 then
+            expected = GameTimeCurve.GameSecondsGained(mod.startGameTime, mod.elapsedTime * mod.run.dilation)
         else
-            expected = mod.elapsedTime * mod.settings.speed
+            expected = mod.elapsedTime * mod.run.speed
         end
-        local factor = 0
-        if expected > 0 then factor = gameSecondsPassed / expected end
+        -- Under one expected game second (a 0x run) the ratio is rounding noise, so there is none.
+        local factor = nil
+        if expected >= 1 then factor = gameSecondsPassed / expected end
 
-        mod.lastRunStats.mode = mod.settings.mode
-        mod.lastRunStats.speedSetting = mod.settings.speed
+        mod.lastRunStats.mode = mod.run.mode
+        mod.lastRunStats.speedSetting = mod.run.speed
         mod.lastRunStats.durationReal = mod.elapsedTime
         mod.lastRunStats.timePassedGame = gameSecondsPassed
         mod.lastRunStats.timeExpectedGame = expected
         mod.lastRunStats.factor = factor
         mod.lastRunStats.valid = true
 
-        Log.Info("Stopped: %.2f game seconds in %.2f real seconds, expected %.2f, %s %.1f%%",
+        Log.Info("Stopped: %.2f game seconds in %.2f real seconds, expected %.2f, %s %s",
             gameSecondsPassed, mod.elapsedTime, expected,
-            mod.settings.mode == 0 and "curve match" or "clock efficiency", factor * 100)
+            mod.run.mode == 0 and "curve match" or "clock efficiency",
+            factor and string.format("%.1f%%", factor * 100) or "n/a")
     end
 end
 
@@ -399,11 +432,7 @@ function Core.Start(mod, HudUtils)
         mod.finishMarkerTimer = nil
     end
 
-    if mod.settings.blockInCombat and Core.IsCombatActive() then
-        Core.NotifyWarning(mod, "Cannot start Time-lapse during Combat!")
-        Log.Info("Start refused: player is in combat")
-        return
-    end
+    if RefusedInCombat(mod) then return end
 
     if mod.settings.startDelay > 0 then
         mod.delayTimer = mod.settings.startDelay
@@ -453,19 +482,19 @@ function Core.Update(mod, delta, HudUtils)
         end
     elseif mod.isActive then
         local runStep = simStep
-        if mod.settings.mode == 0 then
-            local dilation = Core.EffectiveDilation(mod)
+        if mod.run.mode == 0 then
+            local dilation = mod.run.dilation
             -- At 0x the simulation never moves, so a paused shot counts real time instead.
             if dilation > 0 then runStep = simStep / dilation else runStep = delta end
         end
         mod.elapsedTime = mod.elapsedTime + runStep
-        if mod.settings.mode == 0 then TimingProbe.Update(delta, mod.settings.speed) end
+        if mod.run.mode == 0 then TimingProbe.Update(delta, mod.run.speed) end
 
         -- MODE 1: CLOCK ADVANCEMENT
-        if mod.settings.mode == 1 then
+        if mod.run.mode == 1 then
             -- Integrate time strictly (step * Speed)
             -- This avoids "read-back lag" from GetGameTime() and ensures 100% efficiency.
-            local step = runStep * mod.settings.speed
+            local step = runStep * mod.run.speed
             mod.totalGameTimeAdded = mod.totalGameTimeAdded + step
 
             local ts = Game.GetTimeSystem()
@@ -493,13 +522,13 @@ function Core.Update(mod, delta, HudUtils)
         end
         if Undo.Has("airTraffic") then
             local quests = Game.GetQuestsSystem()
-            if quests:GetFactStr(AIR_TRAFFIC_FACT) ~= 1 then
+            if quests and quests:GetFactStr(AIR_TRAFFIC_FACT) ~= 1 then
                 Core.CountReenabled(mod, "airTraffic")
                 quests:SetFactStr(AIR_TRAFFIC_FACT, 1)
             end
         end
         if VehicleDilation.IsRunning() then
-            VehicleDilation.Update(delta, mod.settings.frenzySpeedMult)
+            VehicleDilation.Update(delta, mod.run.frenzySpeedMult)
         end
     end
 end

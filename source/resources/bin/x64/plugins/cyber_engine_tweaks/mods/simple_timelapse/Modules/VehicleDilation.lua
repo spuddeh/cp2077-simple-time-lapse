@@ -116,16 +116,7 @@ end
 -- ### AUTONOMOUS DRIVE COMMAND ###
 -- =========================================================================
 
---- Injects an AIVehicleDriveToPointAutonomousCommand on a single vehicle.
---- Projects 1000m ahead along their current heading, with speed scaled by `speedMult`.
----
---- Speed tuning rationale (to reduce rear-end collisions):
----   maxSpeed  = base * mult, capped at 40 m/s (144 km/h) — lower cap means less
----              closing speed when they catch up to traffic ahead.
----   minSpeed  = 3.0 — low enough to allow real braking/stopping behind other cars.
----   forcedStartSpeed = 5.0 * mult — gentler launch from stops, less likely to ram
----              the car in front when a light turns green.
----
+--- Sends one vehicle down the road towards a point 1000 m ahead, at a speed scaled by `speedMult`.
 --- The caller has already checked that the vehicle is untracked and has an AI component.
 --- @param vehicle VehicleObject The vehicle entity to command
 --- @param aiComp AIComponent The vehicle's AI component
@@ -145,17 +136,16 @@ local function ApplyAutonomousDrive(vehicle, aiComp, entId, speedMult)
         pos.z + (fwd.z * distance)
     )
 
-    -- Scale speed with a more conservative cap to reduce collisions
+    -- Speeds are kept low enough that a car can brake behind the one ahead instead of rear-ending it.
     local baseSpeed = math.max(currentSpeed, 15.0)               -- Floor at 15m/s (54km/h)
-    local targetMaxSpeed = math.min(baseSpeed * speedMult, 40.0) -- Cap 40m/s (144km/h) — reduced from 80
+    local targetMaxSpeed = math.min(baseSpeed * speedMult, 40.0) -- Cap 40m/s (144km/h)
 
-    -- Build the autonomous drive command with collision-aware tuning
     local cmd = AIVehicleDriveToPointAutonomousCommand.new()
     cmd.targetPosition = targetVec
     cmd.maxSpeed = targetMaxSpeed
-    cmd.minSpeed = 3.0                      -- Allow real braking (was 5.0 * speedMult = 7.5)
+    cmd.minSpeed = 3.0                      -- Low enough to stop behind other cars
     cmd.clearTrafficOnPath = false          -- Don't ram other cars off the road
-    cmd.forcedStartSpeed = 5.0 * speedMult  -- Gentler launch (was 10.0 * speedMult)
+    cmd.forcedStartSpeed = 5.0 * speedMult  -- Launch from a stop without ramming the car ahead
     cmd.driveDownTheRoadIndefinitely = true -- Follow the road system (lanes, lights)
 
     -- Send the command via the AI component

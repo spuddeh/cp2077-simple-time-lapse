@@ -40,9 +40,15 @@ local function DrawSettingsTab(mod, Core, HudUtils, c, spacing)
     -- === BODY (SCROLLABLE) ===
     if wu.Controls.BeginFillChild("SettingsBody", { footerHeight = footerHeight, border = true }) then
         local bodyW = ImGui.GetContentRegionAvail()
+        -- A run reads its mode and speeds once, at Start.
+        local runLocked = mod.isActive
 
         -- 0. TIMELAPSE MODE
         ImGui.TextWrapped(IconGlyphs.MovieRoll .. " Time-lapse Mode")
+        if runLocked then
+            ImGui.TextDisabled("Mode and speed are locked while a time-lapse runs.")
+        end
+        ImGui.BeginDisabled(runLocked)
         if ImGui.RadioButton("Simulation (Standard)", mod.settings.mode == 0) then
             mod.settings.mode = 0
             Core.ClampSpeed(mod)
@@ -57,6 +63,7 @@ local function DrawSettingsTab(mod, Core, HudUtils, c, spacing)
             ImGui.SetTooltip(
                 "Speeds up ONLY the Time of Day (Sun/Stars). \nNPCs and Traffic move at normal speed. \nBest for sunsets/sunrises.")
         end
+        ImGui.EndDisabled()
 
         ImGui.Spacing(); ImGui.Separator(); ImGui.Spacing()
 
@@ -105,6 +112,7 @@ local function DrawSettingsTab(mod, Core, HudUtils, c, spacing)
 
         -- 3. SPEED
         ImGui.TextWrapped(IconGlyphs.Speedometer .. " Dilation Speed (Multiplier)")
+        ImGui.BeginDisabled(runLocked)
         ImGui.SetNextItemWidth(bodyW)
 
         local maxSpeed = Core.GetMaxSpeed(mod)
@@ -135,6 +143,7 @@ local function DrawSettingsTab(mod, Core, HudUtils, c, spacing)
             speedRow[i] = { label = s .. "x", onClick = function() mod.settings.speed = s end }
         end
         wu.Controls.ButtonRow(speedRow, { normalSpacing = true })
+        ImGui.EndDisabled()
 
         ImGui.Spacing(); ImGui.Separator(); ImGui.Spacing()
 
@@ -208,11 +217,13 @@ local function DrawSettingsTab(mod, Core, HudUtils, c, spacing)
         if mod.settings.forceVehicleDilation then
             ImGui.Spacing()
             ImGui.TextWrapped(IconGlyphs.Speedometer .. " Vehicle Speed Multiplier")
+            ImGui.BeginDisabled(runLocked)
             c:SliderFloat(nil, "frenzySpeedMult", 1.0, 20.0, {
                 format = "%.1fx",
                 tooltip = "Controls how fast traffic moves. Decoupled from time dilation speed.\n" ..
                     "1.5x looks best with 10x dilation. Higher values = faster but jankier.",
             })
+            ImGui.EndDisabled()
         end
 
         -- Manual HUD Button
@@ -313,9 +324,13 @@ local function DrawDebugTab(mod, Core, HudUtils, CameraUtils)
 
         if mod.lastRunStats.mode == 0 then
             ImGui.Spacing(); ImGui.TextWrapped("Day Curve Match:"); ImGui.SameLine()
-            local f = mod.lastRunStats.factor; local col = { 0, 1, 0, 1 }
+            local f = mod.lastRunStats.factor or 1; local col = { 0, 1, 0, 1 }
             if math.abs(f - 1) > 0.02 then col = { 1, 1, 0, 1 } end; if math.abs(f - 1) > 0.1 then col = { 1, 0.5, 0, 1 } end
-            ImGui.TextColored(col[1], col[2], col[3], col[4], string.format("%.1f%%", f * 100))
+            if mod.lastRunStats.factor then
+                ImGui.TextColored(col[1], col[2], col[3], col[4], string.format("%.1f%%", f * 100))
+            else
+                ImGui.TextDisabled("n/a")
+            end
             ImGui.Spacing(); ImGui.PushTextWrapPos(0.0)
             ImGui.TextDisabled(
                 "Note: The game clock gains 8 game seconds per simulated second, slowed to about 72% around dawn and dusk. 100% means the run matched the vanilla day curve built into the mod. A mod that changes the length of the day moves this away from 100%, and runs under a few seconds read rough because game time is counted in whole seconds.")
@@ -323,9 +338,13 @@ local function DrawDebugTab(mod, Core, HudUtils, CameraUtils)
         else
             -- Mode 1: Efficiency (Target ~1.0)
             ImGui.Spacing(); ImGui.TextWrapped("Clock Efficiency:"); ImGui.SameLine()
-            local f = mod.lastRunStats.factor; local col = { 0, 1, 0, 1 }
+            local f = mod.lastRunStats.factor or 1; local col = { 0, 1, 0, 1 }
             if f < 0.95 then col = { 1, 1, 0, 1 } end; if f < 0.5 then col = { 1, 0.5, 0, 1 } end
-            ImGui.TextColored(col[1], col[2], col[3], col[4], string.format("%.2f%%", f * 100))
+            if mod.lastRunStats.factor then
+                ImGui.TextColored(col[1], col[2], col[3], col[4], string.format("%.2f%%", f * 100))
+            else
+                ImGui.TextDisabled("n/a")
+            end
             ImGui.Spacing(); ImGui.PushTextWrapPos(0.0)
             ImGui.TextDisabled(
                 "Note: 100% means the clock moved exactly as fast as requested. Lower values mean the script couldn't keep up (unlikely).")

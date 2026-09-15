@@ -93,6 +93,8 @@ registerForEvent("onInit", function()
     Log.SetLevel(mod.settings.logLevel)
     -- Loading a save or quitting to the menu ends the session without a Stop.
     GameSession.OnEnd(function() Core.Cleanup(mod, HudUtils) end)
+    GameSession.OnPause(function() Core.OnGamePaused(mod, HudUtils) end)
+    GameSession.OnResume(function() Core.OnGameResumed(mod) end)
     Log.Info("Initialized (%s)", mod.version)
 end)
 

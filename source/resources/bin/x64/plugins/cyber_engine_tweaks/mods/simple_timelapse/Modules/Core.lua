@@ -318,6 +318,22 @@ function Core.ExecuteStart(mod, HudUtils)
     end
 end
 
+--- Stops a run or cancels its countdown when the game pauses: the pause menu, any hub menu,
+--- photo mode or a tutorial popup. The CET overlay does not pause the game.
+function Core.OnGamePaused(mod, HudUtils)
+    if not mod.isActive and not mod.isDelaying then return end
+    Log.Info("A menu opened, stopping")
+    mod.stoppedByMenu = true
+    Core.Stop(mod, HudUtils)
+end
+
+--- Tells the player why the run ended, once the menu that stopped it has closed.
+function Core.OnGameResumed(mod)
+    if not mod.stoppedByMenu then return end
+    mod.stoppedByMenu = false
+    Core.Notify(mod, "Time-lapse stopped: a menu was opened")
+end
+
 function Core.Stop(mod, HudUtils)
     local wasActive = mod.isActive
     mod.isActive = false
@@ -335,11 +351,14 @@ function Core.Stop(mod, HudUtils)
     Undo.RunAll()
 
     if wasActive and mod.elapsedTime > 0 then
-        mod.finishMarkerTimer = Cron.After(FINISH_MARKER_DELAY, function()
-            mod.finishMarkerTimer = nil
-            Core.Notify(mod, "Time-lapse Finished")
-            Core.PlaySound(mod, "ui_hacking_access_granted")
-        end)
+        -- A run a menu stopped gets the menu message on resume instead of the finish marker.
+        if not mod.stoppedByMenu then
+            mod.finishMarkerTimer = Cron.After(FINISH_MARKER_DELAY, function()
+                mod.finishMarkerTimer = nil
+                Core.Notify(mod, "Time-lapse Finished")
+                Core.PlaySound(mod, "ui_hacking_access_granted")
+            end)
+        end
 
         -- Calculate the run stats.
         local gameSecondsPassed = actualEndSeconds - mod.startGameTime
@@ -372,6 +391,7 @@ end
 --- Puts back everything the run changed, plus a HUD the player hid by hand, with no
 --- finish marker or run stats. For session end and shutdown.
 function Core.Cleanup(mod, HudUtils)
+    mod.stoppedByMenu = false
     mod.isActive = false
     mod.isDelaying = false
     mod.overlayMessage = nil
@@ -412,9 +432,25 @@ function Core.Start(mod, HudUtils)
     end
 end
 
+local lastSimTime = nil
+
+--- Simulation seconds since the previous frame. Zero while the game is paused.
+local function SimStep()
+    local ts = Game.GetTimeSystem()
+    if not ts then return 0 end
+    local now = EngineTime.ToDouble(ts:GetSimTime())
+    local step = lastSimTime and math.max(now - lastSimTime, 0) or 0
+    lastSimTime = now
+    return step
+end
+
 function Core.Update(mod, delta, HudUtils)
+    -- The countdown and the run count simulated seconds, converted back to real seconds at the
+    -- run's dilation, so time spent paused never counts towards them.
+    local simStep = SimStep()
+
     if mod.isDelaying then
-        mod.delayTimer = mod.delayTimer - delta
+        mod.delayTimer = mod.delayTimer - simStep
 
         local currentInt = math.ceil(mod.delayTimer)
         if currentInt ~= mod.lastCountdownInt then
@@ -429,14 +465,20 @@ function Core.Update(mod, delta, HudUtils)
             Core.ExecuteStart(mod, HudUtils)
         end
     elseif mod.isActive then
-        mod.elapsedTime = mod.elapsedTime + delta
+        local runStep = simStep
+        if mod.settings.mode == 0 then
+            local dilation = Core.EffectiveDilation(mod)
+            -- At 0x the simulation never moves, so a paused shot counts real time instead.
+            if dilation > 0 then runStep = simStep / dilation else runStep = delta end
+        end
+        mod.elapsedTime = mod.elapsedTime + runStep
         if mod.settings.mode == 0 then TimingProbe.Update(delta, mod.settings.speed) end
 
         -- MODE 1: CLOCK ADVANCEMENT
         if mod.settings.mode == 1 then
-            -- Integrate time strictly (RealDelta * Speed)
+            -- Integrate time strictly (step * Speed)
             -- This avoids "read-back lag" from GetGameTime() and ensures 100% efficiency.
-            local step = delta * mod.settings.speed
+            local step = runStep * mod.settings.speed
             mod.totalGameTimeAdded = mod.totalGameTimeAdded + step
 
             local ts = Game.GetTimeSystem()

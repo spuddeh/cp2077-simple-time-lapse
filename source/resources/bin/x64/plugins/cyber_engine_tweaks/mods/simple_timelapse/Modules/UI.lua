@@ -108,7 +108,7 @@ local function DrawSettingsTab(mod, Core, HudUtils, c, spacing)
         ImGui.SetNextItemWidth(bodyW)
 
         local maxSpeed = Core.GetMaxSpeed(mod)
-        local speedTooltip = "0 = Pause | 0.5x = Half Speed | 1x = Normal | 10x = Max Efficient Speed"
+        local speedTooltip = "0 = Pause | 0.5x = Half Speed | 1x = Normal | 10x = the engine's maximum"
 
         if mod.settings.mode == 1 then
             speedTooltip =
@@ -135,13 +135,6 @@ local function DrawSettingsTab(mod, Core, HudUtils, c, spacing)
             speedRow[i] = { label = s .. "x", onClick = function() mod.settings.speed = s end }
         end
         wu.Controls.ButtonRow(speedRow, { normalSpacing = true })
-
-        if mod.settings.mode == 0 and mod.settings.unlockSpeed and mod.settings.speed > 10.0 then
-            ImGui.Spacing(); ImGui.PushTextWrapPos(0.0)
-            ImGui.TextColored(1, 0, 0, 1, IconGlyphs.Alert ..
-                " WARNING: Simulation speeds above 10x hit engine limits. Time estimate will be inaccurate, and the simulation will be capped at the engine limit.")
-            ImGui.PopTextWrapPos()
-        end
 
         ImGui.Spacing(); ImGui.Separator(); ImGui.Spacing()
 
@@ -262,22 +255,8 @@ local function DrawSettingsTab(mod, Core, HudUtils, c, spacing)
 end
 
 local function DrawDebugTab(mod, Core, HudUtils, CameraUtils)
-    ImGui.Spacing()
-    ImGui.TextWrapped(IconGlyphs.LockOpen .. " Simulation Limits")
-    local unlock, changed = ImGui.Checkbox("Unlock Speed Limit (Max 100x)", mod.settings.unlockSpeed)
-    if changed then
-        mod.settings.unlockSpeed = unlock; Core.ClampSpeed(mod)
-    end
-
-    if mod.settings.unlockSpeed then
-        ImGui.Spacing(); ImGui.PushTextWrapPos(0.0)
-        ImGui.TextColored(1, 0, 0, 1, IconGlyphs.Alert ..
-            " WARNING: Simulation speeds above 10x hit engine limits. Time estimate will be inaccurate, and the simulation will be capped at the engine limit.")
-        ImGui.PopTextWrapPos()
-    end
-
     -- PANIC CONTROLS
-    ImGui.Spacing(); ImGui.Separator(); ImGui.Spacing()
+    ImGui.Spacing()
     ImGui.TextWrapped(IconGlyphs.AlertOctagon .. " Panic Controls")
     ImGui.Spacing()
 

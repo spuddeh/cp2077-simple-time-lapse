@@ -17,7 +17,6 @@ local FILE_NAME = "settings.json"
 -- Options that start from their default every launch.
 local SESSION_ONLY = {
     forceVehicleDilation = true,
-    unlockSpeed = true,
 }
 
 -- Fields of mod.ui that are saved alongside mod.settings.

@@ -61,7 +61,6 @@ local mod = {
         disableAirTraffic = false,
         disableCrowds = false,
 
-        unlockSpeed = false,
         logLevel = Log.DEFAULT_LEVEL,
         forceVehicleDilation = false, -- Experimental
         frenzySpeedMult = 1.5,

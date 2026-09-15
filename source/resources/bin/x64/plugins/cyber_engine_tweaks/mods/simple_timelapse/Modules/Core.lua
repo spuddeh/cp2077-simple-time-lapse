@@ -173,15 +173,14 @@ end
 -- ### START / STOP LOGIC ###
 -- =================================================================
 
---- Highest speed the current mode allows: Clock 10000x, Simulation 10x, or 100x unlocked.
-function Core.GetMaxSpeed(mod)
-    if mod.settings.mode == 1 then return 10000.0 end
-    if mod.settings.unlockSpeed then return 100.0 end
-    return 10.0
-end
-
 -- The engine runs the simulation at no more than 10x, whatever SetTimeDilation is given.
 local ENGINE_MAX_DILATION = 10.0
+
+--- Highest speed the current mode allows: Clock 10000x, Simulation the engine's 10x.
+function Core.GetMaxSpeed(mod)
+    if mod.settings.mode == 1 then return 10000.0 end
+    return ENGINE_MAX_DILATION
+end
 
 --- The dilation a Simulation run actually gets.
 function Core.EffectiveDilation(mod)

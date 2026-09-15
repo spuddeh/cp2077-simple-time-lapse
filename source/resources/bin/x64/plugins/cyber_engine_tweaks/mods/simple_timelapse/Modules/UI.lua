@@ -188,6 +188,8 @@ local function DrawSettingsTab(mod, Core, HudUtils, c, spacing)
             "Prevents player movement during time-lapse to avoid accidental shifts.")
         check(IconGlyphs.Eye .. " Lock Camera", "lockCamera",
             "Prevents camera rotation during time-lapse to ensure a static frame.")
+        check(IconGlyphs.ShieldOutline .. " Block Start in Combat", "blockInCombat",
+            "Refuses to start a time-lapse while you are in combat.\nUntick to allow a run during combat.")
 
         check(IconGlyphs.AirplaneOff .. " Disable Air Traffic", "disableAirTraffic",
             "Disables flying AVs/cars during time-lapse.\nNOTE: You may need to run the time-lapse for longer to clear out existing AVs")

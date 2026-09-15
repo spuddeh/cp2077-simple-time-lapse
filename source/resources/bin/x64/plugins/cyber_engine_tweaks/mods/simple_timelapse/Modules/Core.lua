@@ -399,7 +399,7 @@ function Core.Start(mod, HudUtils)
         mod.finishMarkerTimer = nil
     end
 
-    if Core.IsCombatActive() then
+    if mod.settings.blockInCombat and Core.IsCombatActive() then
         Core.NotifyWarning(mod, "Cannot start Time-lapse during Combat!")
         Log.Info("Start refused: player is in combat")
         return

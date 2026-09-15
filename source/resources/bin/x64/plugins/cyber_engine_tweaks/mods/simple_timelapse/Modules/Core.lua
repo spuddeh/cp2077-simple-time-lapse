@@ -56,21 +56,8 @@ end
 function Core.IsCombatActive()
     local player = Game.GetPlayer()
     if not player then return false end
-
-    local bb = nil
-    if player['GetPlayerStateMachineBlackboard'] then
-        bb = player:GetPlayerStateMachineBlackboard()
-    end
-    if not bb then
-        local bbDefs = Game.GetAllBlackboardDefs()
-        bb = Game.GetBlackboardSystem():Get(bbDefs.PlayerStateMachine)
-    end
-    if bb then
-        local bbDefs = Game.GetAllBlackboardDefs()
-        local combatState = bb:GetInt(bbDefs.PlayerStateMachine.Combat)
-        return combatState == 1 -- 1 = InCombat
-    end
-    return false
+    -- Mirrors the player's state machine Combat value being InCombat.
+    return player:IsInCombat()
 end
 
 -- =================================================================

@@ -8,6 +8,10 @@
 - **[Simple Time-lapse] AudioUtils.lua (new) v1.3.0**:
     - [New] `Mute` turns `RadioportVolume`, `CarRadioVolume`, `MusicVolume` and `SfxVolume` to 0 per the `muteRadio` / `muteMusic` / `muteSfx` settings, each with its own undo that restores only a level still at 0.
     - [New] `ForceRestore` panic button on the Debug tab puts any of those sliders sitting at 0 back to 100.
+- **[Simple Time-lapse] Notifications.lua (new) v1.3.0**:
+    - [New] `Silence` sends `MakeNotificationQueueSilentEvent` through `UISystem.QueueEvent` for the Generic, JournalNotification and PhoneNotification queues, with one undo that gives all three back.
+    - [New] `Init` observes `PhoneSystem.OnTriggerCall` and plays `ui_phone_incoming_call_stop` / `ui_phone_initiation_call_stop` while a run is active, which is how `OnTalkingTriggerRequest` ends a ring. The call itself is untouched.
+    - [New] `ForceRestore` is wired into the Restore Audio panic button.
 - **[Simple Time-lapse] CameraUtils.lua v1.3.0**:
     - [New] `lockWeapons` applies `GameplayRestriction.NoCombat` on its own; `lockMovement` applies only `NoMovement`. `NoCombat` forces empty hands, which is what the game uses to silence the Radioport.
 - **[Simple Time-lapse] VehicleDilation.lua v1.3.0**:

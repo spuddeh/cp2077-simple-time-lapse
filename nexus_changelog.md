@@ -3,6 +3,7 @@
 ### [Unreleased - v2.0.0]
 - New: Mute Radio, on by default, silences the Radioport and the car radio for the length of a run
 - New: Mute Music and Mute Sound Effects, both off by default, for keeping the score or a message alert off a recording
+- New: Mute Notifications, on by default, silences message, quest and side popups for the run, and cuts the ringtone of a call that arrives mid-run
 - New: Lock Weapons is now its own setting. Lock Movement no longer empties V's hands, so the radio can keep playing during a locked shot
 - New: Restore Audio button on the Debug tab, for a volume left muted by a crash mid-run
 - New: Mode and speed are locked while a time-lapse runs

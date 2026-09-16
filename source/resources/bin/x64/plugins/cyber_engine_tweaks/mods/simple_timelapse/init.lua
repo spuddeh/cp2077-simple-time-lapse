@@ -56,6 +56,7 @@ local mod = {
         disableHeadBob = true,
         lockMovement = true,
         lockCamera = true,
+        lockWeapons = true,
         showMessages = true,
         playAudio = true,
         disableAirTraffic = false,

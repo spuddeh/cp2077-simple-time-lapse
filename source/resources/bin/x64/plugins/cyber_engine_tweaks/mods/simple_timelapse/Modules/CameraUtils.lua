@@ -79,7 +79,11 @@ function CameraUtils.LockPlayer(mod)
 
     if mod.settings.lockMovement then
         Lock("lockMovement", ids.MOVE)
-        Lock("lockCombat", ids.COMBAT)
+    end
+
+    -- NoCombat empties the player's hands, which is also what silences the Radioport.
+    if mod.settings.lockWeapons then
+        Lock("lockWeapons", ids.COMBAT)
     end
 
     if mod.settings.lockCamera then

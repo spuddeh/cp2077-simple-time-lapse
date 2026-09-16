@@ -203,6 +203,8 @@ local function DrawSettingsTab(mod, Core, HudUtils, c, spacing)
 
         check(IconGlyphs.Walk .. " Lock Movement", "lockMovement",
             "Prevents player movement during time-lapse to avoid accidental shifts.")
+        check(IconGlyphs.Pistol .. " Lock Weapons", "lockWeapons",
+            "Stops V drawing or firing a weapon during the run.\nIt also empties V's hands, which silences the Radioport.")
         check(IconGlyphs.Eye .. " Lock Camera", "lockCamera",
             "Prevents camera rotation during time-lapse to ensure a static frame.")
         check(IconGlyphs.ShieldOutline .. " Block Start in Combat", "blockInCombat",

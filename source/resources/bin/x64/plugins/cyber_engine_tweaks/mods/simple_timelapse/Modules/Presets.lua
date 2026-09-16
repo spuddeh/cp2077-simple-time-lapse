@@ -40,12 +40,12 @@ local BUILTIN = {
     },
     {
         name = "Sunrise",
-        settings = { mode = 1, speed = 600.0, useStartTime = true, comboHour = 4, comboMinute = 0, comboAmPm = 0 },
+        settings = { mode = 1, speed = 600.0, useStartTime = true, startSeconds = 18000.0 },
         ui = { durationVal = 60.0, durationUnit = 0 },
     },
     {
         name = "City Rush",
-        settings = { mode = 0, speed = 10.0, useStartTime = true, comboHour = 4, comboMinute = 30, comboAmPm = 1 },
+        settings = { mode = 0, speed = 10.0, useStartTime = true, startSeconds = 63000.0 },
         ui = { durationVal = 2.0, durationUnit = 1 },
     },
     {

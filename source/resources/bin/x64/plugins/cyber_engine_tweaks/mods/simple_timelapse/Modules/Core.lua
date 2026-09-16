@@ -72,10 +72,9 @@ function Core.GetGameTimeStr()
     return string.format("%02d:%02d:%02d", t:Hours(), t:Minutes(), t:Seconds())
 end
 
-function Core.CalculateSecondsFromCombo(mod)
-    local h = mod.settings.comboHour + 1; local m = mod.settings.comboMinute; local isPm = (mod.settings.comboAmPm == 1)
-    local hour24 = h; if h == 12 then hour24 = isPm and 12 or 0 else hour24 = isPm and (h + 12) or h end
-    return (hour24 * 3600) + (m * 60)
+--- The chosen start time, in seconds since midnight.
+function Core.GetStartSeconds(mod)
+    return mod.settings.startSeconds
 end
 
 function Core.GetTotalGameSeconds()
@@ -113,7 +112,7 @@ end
 function Core.GetEstimatedData(mod)
     local startSecs = 0
     if mod.settings.useStartTime then
-        startSecs = Core.CalculateSecondsFromCombo(mod)
+        startSecs = Core.GetStartSeconds(mod)
     else
         local ts = Game.GetTimeSystem(); if ts then
             local t = ts:GetGameTime(); startSecs = (t:Hours() * 3600) + (t:Minutes() * 60) + t:Seconds()
@@ -152,7 +151,7 @@ end
 function Core.SetTimeNow(mod)
     local ts = Game.GetTimeSystem()
     if ts then
-        ts:SetGameTimeBySeconds(Core.CalculateSecondsFromCombo(mod))
+        ts:SetGameTimeBySeconds(Core.GetStartSeconds(mod))
         Log.Debug("Time manually set")
         Core.PlaySound(mod, "ui_menu_click")
     end

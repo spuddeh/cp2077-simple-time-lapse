@@ -64,6 +64,17 @@ function Settings.Load(mod, Core)
         end
     end
 
+    -- A file written before the start time became one value carries the three combo keys.
+    if type(data.settings) == "table" and data.settings.startSeconds == nil
+        and type(data.settings.comboHour) == "number" then
+        local h = data.settings.comboHour + 1
+        local isPm = data.settings.comboAmPm == 1
+        local hour24 = h
+        if h == 12 then hour24 = isPm and 12 or 0 else hour24 = isPm and (h + 12) or h end
+        mod.settings.startSeconds = (hour24 * 3600) + ((data.settings.comboMinute or 0) * 60)
+        Log.Debug("Start time migrated to %d seconds", mod.settings.startSeconds)
+    end
+
     if not Log.IsLevel(mod.settings.logLevel) then mod.settings.logLevel = mod.defaults.logLevel end
     Core.ClampSpeed(mod)
     Core.RecalcDuration(mod)

@@ -72,9 +72,8 @@ local mod = {
         logLevel = Log.DEFAULT_LEVEL,
         forceVehicleDilation = false, -- Experimental
         frenzySpeedMult = 1.5,
-        comboHour = 5,
-        comboMinute = 0,
-        comboAmPm = 0
+        -- Seconds since midnight. 6 AM.
+        startSeconds = 21600.0
     }
 }
 

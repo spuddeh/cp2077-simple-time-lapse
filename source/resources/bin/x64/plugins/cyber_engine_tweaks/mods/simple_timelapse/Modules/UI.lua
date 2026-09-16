@@ -6,8 +6,9 @@
 -- DESCRIPTION:
 -- The whole window, drawn with Window Utils, a required dependency. Controls, colours
 -- and spacing come from the library rather than raw ImGui wherever it offers them.
--- Layout: the status line and preset row pinned at the top, a tab bar, the tab's own
--- scrolling body, and the clock readout with START pinned at the bottom.
+-- Layout: status line, preset row and the run summary pinned at the top, a column of
+-- section buttons beside the section's own scrolling pane, and the clock readout with
+-- START pinned at the bottom. The summary shows what a run will do from any section.
 -- ======================================================================================
 
 local Log = require("Modules/Log")
@@ -20,15 +21,20 @@ local UI = {}
 
 local WINDOW_NAME = "Simple Time-lapse"
 
--- Choices for the Start Time combos. Index 0 is 1 o'clock and 00 minutes.
-local HOURS = {}; for i = 1, 12 do HOURS[i] = tostring(i) end
-local MINUTES = {}; for i = 0, 59 do MINUTES[i + 1] = string.format("%02d", i) end
+-- Width of the section column, and the smallest the pane beside it may get.
+local NAV_WIDTH = 132
+local MIN_PANE_HEIGHT = 120
+
+-- Every slider and drag here types a value on Ctrl+click, which is ImGui's own binding.
+local TYPE_HINT = "\nCtrl+click to type a value."
 
 local wu = nil
 local binding = nil
 
--- Height of the pinned footer, measured each frame and used to size the body on the next.
+-- Height of the pinned footer, measured each frame and used to size the panes on the next.
 local footerHeight = 120
+
+local section = 1
 
 -- Preset row state. The name box is only on screen while a save is being named.
 local presetIndex = 0
@@ -42,14 +48,6 @@ local function DrawMissingDependency()
         ImGui.Text("Install it from Nexus Mods (mod 26589). The hotkeys still work without it.")
     end
     ImGui.End()
-end
-
---- The scrolling area of a tab, sized so the footer always stays on screen.
-local function TabBody(id, contentFn)
-    if wu.Controls.BeginFillChild(id, { footerHeight = footerHeight, border = true }) then
-        contentFn()
-    end
-    wu.Controls.EndFillChild(id)
 end
 
 -- =================================================================
@@ -66,7 +64,7 @@ local function DrawPresetRow(mod, Core, spacing)
 
     local selected = SelectedPresetName()
     local availW = ImGui.GetContentRegionAvail()
-    local buttonW = 76
+    local buttonW = 78
     local comboW = availW - (buttonW + spacing) * 2
 
     ImGui.BeginDisabled(mod.isActive)
@@ -88,10 +86,10 @@ local function DrawPresetRow(mod, Core, spacing)
     ImGui.SameLine()
     wu.Controls.ButtonRow({
         {
-            label = "Save",
+            label = "Save As",
             width = buttonW,
             disabled = mod.isActive and "hard" or nil,
-            tooltip = "Saves the current options under a name you type.\nAn existing name is replaced.",
+            tooltip = "Saves the options as they stand under a name you type.\nTyping a name that already exists replaces it.",
             onClick = function()
                 naming = true
                 nameInput = selected or ""
@@ -117,8 +115,10 @@ local function DrawPresetRow(mod, Core, spacing)
 
     if naming then
         ImGui.SetNextItemWidth(comboW)
-        local text = wu.Controls.InputText(IconGlyphs.RenameBox, "PresetName", nameInput, { maxLength = 64 })
-        nameInput = text
+        nameInput = wu.Controls.InputText(IconGlyphs.RenameBox, "PresetName", nameInput, {
+            maxLength = 64,
+            tooltip = "Name this preset.",
+        })
 
         ImGui.SameLine()
         wu.Controls.ButtonRow({
@@ -147,10 +147,55 @@ local function DrawPresetRow(mod, Core, spacing)
 end
 
 -- =================================================================
--- ### TABS ###
+-- ### SUMMARY ###
 -- =================================================================
 
-local function DrawShotTab(mod, Core, c, spacing)
+--- One icon standing for an option the run will apply, with its meaning on hover.
+local function Chip(icon, text)
+    wu.Controls.TextMuted(icon)
+    wu.Tooltips.Show(text)
+    ImGui.SameLine()
+end
+
+--- What the run will do, whichever section is open.
+local function DrawSummary(mod, Core)
+    local s = mod.settings
+
+    local speed = string.format("%.1fx", s.speed)
+    local mode = s.mode == 0 and "Simulation" or "Clock only"
+    local length = s.duration > 0 and Core.FormatDuration(s.duration) or "until stopped"
+    ImGui.Text(mode .. " " .. speed)
+    ImGui.SameLine(); wu.Controls.TextMuted("for"); ImGui.SameLine()
+    ImGui.Text(length)
+    if s.useStartTime then
+        ImGui.SameLine(); wu.Controls.TextMuted("from"); ImGui.SameLine()
+        ImGui.Text(Core.FormatSecondsToTime(Core.GetStartSeconds(mod)))
+    end
+
+    if s.disableAirTraffic then Chip(IconGlyphs.AirplaneOff, "Air traffic off") end
+    if s.disableCrowds then Chip(IconGlyphs.AccountGroupOutline, "Crowds and street traffic off") end
+    if s.forceVehicleDilation and s.mode == 0 then
+        Chip(IconGlyphs.CarSpeedLimiter, string.format("Traffic Frenzy at %.1fx", s.frenzySpeedMult))
+    end
+    if s.muteRadio then Chip(IconGlyphs.RadioOff, "Radio muted") end
+    if s.muteMusic then Chip(IconGlyphs.MusicNoteOff, "Music muted") end
+    if s.muteSfx then Chip(IconGlyphs.VolumeOff, "Sound effects muted") end
+    if s.muteNotifications then Chip(IconGlyphs.BellOff, "Notifications silenced, call ringtone cut") end
+    if s.autoHideHud then Chip(IconGlyphs.EyeOff, "HUD hidden for the run") end
+    if s.lockMovement then Chip(IconGlyphs.Walk, "Movement locked") end
+    if s.lockWeapons then Chip(IconGlyphs.Pistol, "Weapons locked") end
+    if s.lockCamera then Chip(IconGlyphs.Eye, "Camera locked") end
+    if s.disableHeadBob then Chip(IconGlyphs.CameraOutline, "Head bob off") end
+    if s.useStartTime and s.restoreTime then Chip(IconGlyphs.Restore, "Game time put back on Stop") end
+    if s.startDelay > 0 then Chip(IconGlyphs.TimerOutline, string.format("%.1fs countdown", s.startDelay)) end
+    ImGui.NewLine()
+end
+
+-- =================================================================
+-- ### SECTIONS ###
+-- =================================================================
+
+local function DrawShotSection(mod, Core, c, spacing)
     local bodyW = ImGui.GetContentRegionAvail()
     local runLocked = mod.isActive
 
@@ -179,32 +224,21 @@ local function DrawShotTab(mod, Core, c, spacing)
     if mod.settings.mode == 1 then
         speedTooltip = "How fast the clock moves.\n1x = real time | 60x = a game minute a second | 3600x = a game hour a second"
     end
-    c:SliderFloat(IconGlyphs.Speedometer, "speed", 0.0, maxSpeed, { format = "%.1fx", tooltip = speedTooltip })
-
-    -- Precise input, Clock mode only, where the range runs to 10000x.
-    if mod.settings.mode == 1 then
-        local inSpeed, inChanged = wu.Controls.InputFloat(IconGlyphs.Keyboard, "SpeedInput", mod.settings.speed, {
-            step = 1.0,
-            stepFast = 10.0,
-            format = "%.1f",
-            tooltip = "Type a speed for the clock.",
-        })
-        if inChanged then
-            mod.settings.speed = math.max(0.0, math.min(inSpeed, maxSpeed))
-            Settings.Save(mod)
-        end
-    end
+    c:SliderFloat(IconGlyphs.Speedometer, "speed", 0.0, maxSpeed, {
+        format = "%.1fx",
+        tooltip = speedTooltip .. TYPE_HINT,
+    })
 
     local quickSpeeds = { 0.5, 2, 5, 10 }
     if mod.settings.mode == 1 then quickSpeeds = { 1, 60, 600, 3600 } end
 
     local speedRow = {}
-    for i, s in ipairs(quickSpeeds) do
+    for i, sp in ipairs(quickSpeeds) do
         speedRow[i] = {
-            label = s .. "x",
-            style = (mod.settings.speed == s) and "active" or "inactive",
+            label = sp .. "x",
+            style = (mod.settings.speed == sp) and "active" or "inactive",
             onClick = function()
-                mod.settings.speed = s
+                mod.settings.speed = sp
                 Settings.Save(mod)
             end,
         }
@@ -238,75 +272,47 @@ local function DrawShotTab(mod, Core, c, spacing)
 
     c:SliderFloat(IconGlyphs.TimerOutline, "startDelay", 0.0, 30.0, {
         format = "%.1fs",
-        tooltip = "Wait this many seconds after Start before the time-lapse begins, so you can close the overlay.",
+        tooltip = "Wait this many seconds after Start before the time-lapse begins, so you can close the overlay." ..
+            TYPE_HINT,
     })
 
     wu.Controls.SectionHeader("Start Time", 6, 4, nil, nil, { separatorAfter = true })
-    local comboW = (bodyW * 0.28)
-
-    ImGui.PushItemWidth(comboW)
-    local hour, hourChanged = wu.Controls.Combo(IconGlyphs.CalendarClock, "Hour", mod.settings.comboHour, HOURS)
-    if hourChanged then
-        mod.settings.comboHour = hour
+    local newStart, startChanged = wu.Controls.TimeDrag(IconGlyphs.CalendarClock, "StartTime", mod.settings.startSeconds, {
+        tooltip = "The time of day a run starts from. Drag to move it by the minute, double-click to type one.",
+    })
+    if startChanged then
+        mod.settings.startSeconds = newStart % 86400
         Settings.Save(mod)
     end
-    ImGui.SameLine()
-    local minute, minuteChanged = wu.Controls.Combo(nil, "Minute", mod.settings.comboMinute, MINUTES)
-    if minuteChanged then
-        mod.settings.comboMinute = minute
-        Settings.Save(mod)
-    end
-    ImGui.PopItemWidth()
-    ImGui.SameLine()
-    wu.Controls.ButtonRow({
-        {
-            label = "AM",
-            style = (mod.settings.comboAmPm == 0) and "active" or "inactive",
-            onClick = function()
-                mod.settings.comboAmPm = 0
-                Settings.Save(mod)
-            end,
-        },
-        {
-            label = "PM",
-            style = (mod.settings.comboAmPm == 1) and "active" or "inactive",
-            onClick = function()
-                mod.settings.comboAmPm = 1
-                Settings.Save(mod)
-            end,
-        },
-    }, { normalSpacing = true })
 
-    local function TimePreset(label, hourIndex, amPm)
+    local function TimePreset(label, hour24)
         return {
             label = label,
+            style = (mod.settings.startSeconds == hour24 * 3600) and "active" or "inactive",
             onClick = function()
-                mod.settings.comboHour = hourIndex
-                mod.settings.comboMinute = 0
-                mod.settings.comboAmPm = amPm
+                mod.settings.startSeconds = hour24 * 3600
                 Settings.Save(mod)
-                Core.SetTimeNow(mod)
             end,
         }
     end
     wu.Controls.ButtonRow({
-        TimePreset("6 AM", 5, 0), TimePreset("12 PM", 11, 1), TimePreset("6 PM", 5, 1), TimePreset("12 AM", 11, 0),
+        TimePreset("6 AM", 6), TimePreset("12 PM", 12), TimePreset("6 PM", 18), TimePreset("12 AM", 0),
     }, { normalSpacing = true })
 
-    if wu.Controls.FullWidthButton(IconGlyphs.DebugStepOver .. " Set Time Now") then
-        Core.SetTimeNow(mod)
-    end
-    wu.Tooltips.Show("Sets the in-game time to the hour and minute above, right now.")
-
     c:Checkbox(IconGlyphs.History .. " Set Time on Start", "useStartTime",
-        { tooltip = "When the time-lapse starts, set the game time to the hour and minute above." })
+        { tooltip = "When the time-lapse starts, set the game time to the time above." })
     if mod.settings.useStartTime then
         c:Checkbox(IconGlyphs.Restore .. " Restore Time on Stop", "restoreTime",
             { tooltip = "When the time-lapse stops, put the game time back to what it was before Start." })
     end
+
+    if wu.Controls.FullWidthButton(IconGlyphs.DebugStepOver .. " Set Time Now") then
+        Core.SetTimeNow(mod)
+    end
+    wu.Tooltips.Show("Sets the in-game time to the time above, right now.")
 end
 
-local function DrawSceneTab(mod, c)
+local function DrawSceneSection(mod, c)
     wu.Controls.SectionHeader("The city", nil, 4, nil, nil, { separatorAfter = true })
     c:Checkbox(IconGlyphs.AirplaneOff .. " Disable Air Traffic", "disableAirTraffic",
         { tooltip = "Stops flying AVs during the run.\nAVs already in the air need time to clear." })
@@ -328,7 +334,8 @@ local function DrawSceneTab(mod, c)
         ImGui.BeginDisabled(mod.isActive)
         c:SliderFloat(IconGlyphs.CarSpeedLimiter, "frenzySpeedMult", 1.0, 20.0, {
             format = "%.1fx",
-            tooltip = "How fast traffic moves, separate from the time dilation.\n1.5x suits 10x dilation. Higher is faster and jankier.",
+            tooltip = "How fast traffic moves, separate from the time dilation.\n1.5x suits 10x dilation. Higher is faster and jankier." ..
+                TYPE_HINT,
         })
         ImGui.EndDisabled()
     else
@@ -336,7 +343,7 @@ local function DrawSceneTab(mod, c)
     end
 end
 
-local function DrawAudioTab(mod, c)
+local function DrawAudioSection(mod, c)
     wu.Controls.SectionHeader("Muted for the run", nil, 4, nil, nil, { separatorAfter = true })
     c:Checkbox(IconGlyphs.RadioOff .. " Mute Radio", "muteRadio",
         { tooltip = "Silences the Radioport and the car radio for the run, and puts both levels back on Stop." })
@@ -354,7 +361,7 @@ local function DrawAudioTab(mod, c)
         { tooltip = "Show this mod's status messages on screen." })
 end
 
-local function DrawPlayerTab(mod, HudUtils, c)
+local function DrawPlayerSection(mod, HudUtils, c)
     wu.Controls.SectionHeader("Hold the shot", nil, 4, nil, nil, { separatorAfter = true })
     c:Checkbox(IconGlyphs.Walk .. " Lock Movement", "lockMovement",
         { tooltip = "Stops V moving during the run, so the frame cannot drift." })
@@ -378,7 +385,7 @@ local function DrawPlayerTab(mod, HudUtils, c)
     end
 end
 
-local function DrawDebugTab(mod, Core, HudUtils, CameraUtils)
+local function DrawDebugSection(mod, Core, HudUtils, CameraUtils)
     wu.Controls.SectionHeader("Panic controls", nil, 4, nil, nil, { separatorAfter = true })
     wu.Controls.ButtonRow({
         {
@@ -476,7 +483,7 @@ local function DrawStatusLine(mod)
     end
 end
 
---- The last run's outcome in one line. The full numbers are in the Debug tab.
+--- The last run's outcome in one line. The full numbers are in the Debug section.
 local function DrawLastRun(mod, Core)
     if not mod.lastRunStats.valid then return end
 
@@ -504,7 +511,7 @@ local function DrawFooter(mod, Core, HudUtils)
     wu.Controls.Separator(2, 2)
     ImGui.Text("Now " .. Core.GetGameTimeStr())
     ImGui.SameLine()
-    ImGui.Text("to")
+    wu.Controls.TextMuted("to")
     ImGui.SameLine()
     local colors = wu.Styles.colors
     ImGui.TextColored(colors.green[1], colors.green[2], colors.green[3], 1, estData.endTime)
@@ -513,10 +520,6 @@ local function DrawFooter(mod, Core, HudUtils)
     end
     ImGui.SameLine()
     wu.Controls.TextMuted("(" .. estData.durStr .. ")")
-
-    if mod.settings.useStartTime then
-        wu.Controls.TextMuted("Starts at " .. estData.startTimeStr)
-    end
 
     DrawLastRun(mod, Core)
 
@@ -543,8 +546,8 @@ function UI.Draw(mod, Core, HudUtils, CameraUtils)
     end
     binding = binding or wu.Controls.bind(mod.settings, mod.defaults, function() Settings.Save(mod) end)
 
-    wu.SetConstraints(420, 400, 4000, 4000, WINDOW_NAME)
-    ImGui.SetNextWindowSize(440, 800, ImGuiCond.FirstUseEver)
+    wu.SetConstraints(480, 460, 4000, 4000, WINDOW_NAME)
+    ImGui.SetNextWindowSize(520, 760, ImGuiCond.FirstUseEver)
 
     -- First return is the title-bar close button, second is visibility (false while collapsed).
     local open, visible = wu.Begin(WINDOW_NAME, true)
@@ -558,29 +561,37 @@ function UI.Draw(mod, Core, HudUtils, CameraUtils)
 
         DrawStatusLine(mod)
         DrawPresetRow(mod, Core, spacing)
+        wu.Controls.Separator(2, 2)
+        DrawSummary(mod, Core)
 
-        wu.Tabs.bar("MainTabs", {
+        local sections = {
+            { label = IconGlyphs.MovieRoll .. " Shot",   draw = function() DrawShotSection(mod, Core, binding, spacing) end },
+            { label = IconGlyphs.CityVariantOutline .. " Scene", draw = function() DrawSceneSection(mod, binding) end },
+            { label = IconGlyphs.VolumeHigh .. " Audio", draw = function() DrawAudioSection(mod, binding) end },
+            { label = IconGlyphs.AccountOutline .. " Player", draw = function() DrawPlayerSection(mod, HudUtils, binding) end },
+            { label = IconGlyphs.Bug .. " Debug",        draw = function() DrawDebugSection(mod, Core, HudUtils, CameraUtils) end },
+        }
+
+        local _, availH = ImGui.GetContentRegionAvail()
+        local paneHeight = math.max(availH - footerHeight, MIN_PANE_HEIGHT)
+
+        wu.Controls.Row("Main", {
             {
-                label = IconGlyphs.MovieRoll .. " Shot",
-                content = function() TabBody("ShotBody", function() DrawShotTab(mod, Core, binding, spacing) end) end,
+                width = NAV_WIDTH,
+                content = function()
+                    for i, entry in ipairs(sections) do
+                        if wu.Controls.FullWidthButton(entry.label, (section == i) and "active" or "inactive") then
+                            section = i
+                        end
+                    end
+                end,
             },
             {
-                label = IconGlyphs.CityVariantOutline .. " Scene",
-                content = function() TabBody("SceneBody", function() DrawSceneTab(mod, binding) end) end,
+                flex = 1,
+                border = true,
+                content = function() sections[section].draw() end,
             },
-            {
-                label = IconGlyphs.VolumeHigh .. " Audio",
-                content = function() TabBody("AudioBody", function() DrawAudioTab(mod, binding) end) end,
-            },
-            {
-                label = IconGlyphs.AccountOutline .. " Player",
-                content = function() TabBody("PlayerBody", function() DrawPlayerTab(mod, HudUtils, binding) end) end,
-            },
-            {
-                label = IconGlyphs.Bug .. " Debug",
-                content = function() TabBody("DebugBody", function() DrawDebugTab(mod, Core, HudUtils, CameraUtils) end) end,
-            },
-        })
+        }, { height = paneHeight, normalSpacing = true })
 
         DrawFooter(mod, Core, HudUtils)
     end

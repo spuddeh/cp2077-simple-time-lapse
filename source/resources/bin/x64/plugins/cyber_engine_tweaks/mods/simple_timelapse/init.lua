@@ -44,6 +44,7 @@ local mod = {
     ui = {
         durationVal = 10.0,
         durationUnit = 0,
+        clockUnit = 0,
         unitLabels = { "Seconds", "Minutes", "Hours" }
     },
 

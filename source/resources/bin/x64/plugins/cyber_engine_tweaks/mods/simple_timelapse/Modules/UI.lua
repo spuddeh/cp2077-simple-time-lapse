@@ -200,15 +200,11 @@ local UNIT_LABEL = { "Seconds", "Minutes", "Hours" }
 local DURATION_MAX = { 60, 60, 12 }
 local CLOCK_MAX = { 60, 60, 2 }
 
---- Splits a multiplier into a value and the largest unit it divides into evenly.
-local function SpeedParts(speed)
-    if speed >= 3600 and speed % 3600 == 0 then return math.floor(speed / 3600), 2 end
-    if speed >= 60 and speed % 60 == 0 then return math.floor(speed / 60), 1 end
-    return math.max(1, math.floor(speed)), 0
-end
-
 --- Seconds / Minutes / Hours as one button each, the current unit highlighted.
-local function UnitRow(unit, maxima, onPick)
+--- The id scope matters: two rows carrying the same labels share one ImGui id, and
+--- the second row's clicks land on the first.
+local function UnitRow(id, unit, maxima, onPick)
+    ImGui.PushID(id)
     local defs = {}
     for i, label in ipairs(UNIT_LABEL) do
         defs[i] = {
@@ -219,6 +215,7 @@ local function UnitRow(unit, maxima, onPick)
         }
     end
     wu.Controls.ButtonRow(defs, { normalSpacing = true })
+    ImGui.PopID()
 end
 
 local function DrawShotSection(mod, Core, c)
@@ -266,8 +263,11 @@ local function DrawShotSection(mod, Core, c)
     else
         -- Clock speed reads as a length of game time per real second, because a bare
         -- multiplier over four orders of magnitude is unusable on a slider.
-        local value, unit = SpeedParts(mod.settings.speed)
-        UnitRow(unit, CLOCK_MAX, function(newUnit)
+        local unit = mod.ui.clockUnit
+        local value = math.max(1, math.min(math.floor(mod.settings.speed / UNIT_SECONDS[unit + 1] + 0.5),
+            CLOCK_MAX[unit + 1]))
+        UnitRow("clock", unit, CLOCK_MAX, function(newUnit)
+            mod.ui.clockUnit = newUnit
             mod.settings.speed = math.min(value, CLOCK_MAX[newUnit + 1]) * UNIT_SECONDS[newUnit + 1]
             Core.ClampSpeed(mod)
             Settings.Save(mod)
@@ -295,7 +295,7 @@ local function DrawShotSection(mod, Core, c)
     })
 
     if not mod.settings.runUntilStopped then
-        UnitRow(mod.ui.durationUnit, DURATION_MAX, function(newUnit)
+        UnitRow("duration", mod.ui.durationUnit, DURATION_MAX, function(newUnit)
             mod.ui.durationUnit = newUnit
             mod.ui.durationVal = math.min(mod.ui.durationVal, DURATION_MAX[newUnit + 1])
             Core.RecalcDuration(mod)
@@ -323,20 +323,62 @@ local function DrawShotSection(mod, Core, c)
     })
 
     wu.Controls.SectionHeader("Start Time", 6, 4, nil, nil, { separatorAfter = true })
-    local newStart, startChanged = wu.Controls.TimeDrag(IconGlyphs.CalendarClock, "StartTime", mod.settings.startSeconds, {
-        tooltip = "The time of day a run starts from.\nDrag to move it a minute at a time, or double-click and type a time such as 8:00 am.",
-    })
-    if startChanged then
-        mod.settings.startSeconds = newStart % 86400
+    local startSecs = mod.settings.startSeconds
+    local hour24 = math.floor(startSecs / 3600)
+    local minute = math.floor((startSecs % 3600) / 60)
+    local isPm = hour24 >= 12
+    local hour12 = hour24 % 12
+    if hour12 == 0 then hour12 = 12 end
+
+    local function WriteStart(newHour12, newMinute, newIsPm)
+        local h = newHour12 % 12
+        if newIsPm then h = h + 12 end
+        mod.settings.startSeconds = (h * 3600) + (newMinute * 60)
         Settings.Save(mod)
     end
 
-    local function TimePreset(label, hour24)
+    local frameH = ImGui.GetFrameHeight()
+    ImGui.BeginGroup()
+    ImGui.Dummy(0, frameH * 0.5)
+    local newHour, hourChanged = wu.Controls.InputInt(IconGlyphs.CalendarClock, "StartHour", hour12, {
+        step = 0,
+        cols = 3,
+        tooltip = "Hour, 1 to 12.",
+    })
+    if hourChanged then
+        newHour = math.max(1, math.min(newHour, 12))
+        WriteStart(newHour, minute, isPm)
+    end
+    ImGui.SameLine()
+    ImGui.Text(":")
+    ImGui.SameLine()
+    local newMinute, minuteChanged = wu.Controls.InputInt(nil, "StartMinute", minute, {
+        step = 0,
+        cols = 3,
+        tooltip = "Minute, 0 to 59.",
+    })
+    if minuteChanged then
+        newMinute = math.max(0, math.min(newMinute, 59))
+        WriteStart(hour12, newMinute, isPm)
+    end
+    ImGui.EndGroup()
+
+    ImGui.SameLine()
+    ImGui.BeginGroup()
+    if wu.Controls.Button("AM", (not isPm) and "active" or "inactive", frameH * 2, frameH) then
+        WriteStart(hour12, minute, false)
+    end
+    if wu.Controls.Button("PM", isPm and "active" or "inactive", frameH * 2, frameH) then
+        WriteStart(hour12, minute, true)
+    end
+    ImGui.EndGroup()
+
+    local function TimePreset(label, presetHour)
         return {
             label = label,
-            style = (mod.settings.startSeconds == hour24 * 3600) and "active" or "inactive",
+            style = (mod.settings.startSeconds == presetHour * 3600) and "active" or "inactive",
             onClick = function()
-                mod.settings.startSeconds = hour24 * 3600
+                mod.settings.startSeconds = presetHour * 3600
                 Settings.Save(mod)
             end,
         }

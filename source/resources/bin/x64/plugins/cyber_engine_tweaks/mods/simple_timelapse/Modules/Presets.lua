@@ -28,7 +28,7 @@ local EXCLUDED = {
 }
 
 -- Fields of mod.ui a preset carries, because duration is built from them.
-local UI_KEYS = { "durationVal", "durationUnit" }
+local UI_KEYS = { "durationVal", "durationUnit", "clockUnit" }
 
 -- The shipped recipes. Each lists only what it changes; everything else comes from the
 -- mod's defaults, so a shipped preset always describes a whole shot.
@@ -41,7 +41,7 @@ local BUILTIN = {
     {
         name = "Sunrise",
         settings = { mode = 1, speed = 600.0, useStartTime = true, startSeconds = 18000.0 },
-        ui = { durationVal = 60.0, durationUnit = 0 },
+        ui = { durationVal = 60.0, durationUnit = 0, clockUnit = 1 },
     },
     {
         name = "City Rush",

@@ -20,7 +20,7 @@ local SESSION_ONLY = {
 }
 
 -- Fields of mod.ui that are saved alongside mod.settings.
-local UI_KEYS = { "durationVal", "durationUnit" }
+local UI_KEYS = { "durationVal", "durationUnit", "clockUnit" }
 
 local function copy(t)
     local out = {}

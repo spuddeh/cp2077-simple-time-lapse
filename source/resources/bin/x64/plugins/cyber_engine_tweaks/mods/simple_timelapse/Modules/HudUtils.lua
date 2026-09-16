@@ -6,60 +6,56 @@
 -- DESCRIPTION:
 -- Hides and restores the HUD by pushing the game's Empty UI context. Most HUD widgets in
 -- prototype_hud.inkhud mask that context out, so one push hides the HUD, notifications
--- included, and one pop restores it. No user setting changes.
+-- included, and one pop restores it.
 --
--- The vehicle HUD is not one of them. Its widgets list VehicleMounted as a context they
--- are visible in, and neither a second Empty over that context nor a forced entry
--- visibility moves them, so each vehicle HUD controller is caught as it initialises and
--- its root widget is hidden directly - which is what the game's own HideRequest does.
+-- The vehicle HUD is not one of them: its widgets are visible under VehicleMounted, the
+-- context the game pushes on mounting. It has its own game setting, so hiding turns that
+-- off and restoring puts back the value it replaced. That setting is the only one this
+-- mod writes, and a value changed while the HUD is hidden is left alone.
+--
+-- These do not move the vehicle HUD, both measured in game: a second Empty context
+-- pushed over VehicleMounted, and SetHudEntryForcedVisibility(ForceHide) on the vehicle
+-- entries. Swapping the contexts instead of stacking them is worse than useless - it
+-- leaves the game's own stack short a context, and the game can crash on the next push.
 --
 -- The scanner pushes its own context and is left alone: a scanner that cannot be read is
 -- worse than a scanner on screen.
 -- ======================================================================================
 
+local GameSettings = require("Modules/GameSettings")
 local Log = require("Modules/Log")
-local Cron = require("Modules/Cron")
 local HudUtils = {}
+
+local VEHICLE_HUD_SETTING = "/interface/hud/vehicle_hud"
 
 local function EmptyContext()
     return Enum.new("UIGameContext", "Empty")
 end
 
--- Every vehicle HUD controller seen this session. Weak keys, so a controller the game
--- has thrown away does not stay alive here.
-local vehicleControllers = setmetatable({}, { __mode = "k" })
-
---- Shows or hides the root widget of every vehicle HUD controller still alive.
-local function SetVehicleHudVisible(visible)
-    local count = 0
-    for controller in pairs(vehicleControllers) do
-        local ok = pcall(function()
-            local root = controller:GetRootWidget()
-            if root then
-                root:SetVisible(visible)
-                count = count + 1
-            end
-        end)
-        if not ok then vehicleControllers[controller] = nil end
+--- Turns the vehicle HUD setting off, remembering what it was.
+local function HideVehicleHud(mod)
+    local ok, before = pcall(function() return GameSettings.Get(VEHICLE_HUD_SETTING) end)
+    if not ok or type(before) ~= "boolean" then
+        Log.Warn("Could not read %s, the vehicle HUD is left alone", VEHICLE_HUD_SETTING)
+        return
     end
-    Log.Debug("Vehicle HUD set %s on %d controller(s)", visible and "visible" or "hidden", count)
+    if before == false then return end
+
+    GameSettings.Set(VEHICLE_HUD_SETTING, false)
+    mod.vehicleHudBefore = before
+    Log.Debug("Vehicle HUD hidden")
 end
 
---- Catches each vehicle HUD as it initialises. Registered once, because an observer
---- cannot be taken off again.
-function HudUtils.Init(mod)
-    local function Track(self)
-        vehicleControllers[self] = true
-        if not mod.hudHidden then return end
-        -- The widget tree is not always ready in the same frame the controller is.
-        SetVehicleHudVisible(false)
-        Cron.After(0.2, function()
-            if mod.hudHidden then SetVehicleHudVisible(false) end
-        end)
-    end
+--- Puts the setting back, unless something else has turned it on since.
+local function RestoreVehicleHud(mod)
+    if mod.vehicleHudBefore == nil then return end
 
-    Observe("hudCarController", "OnInitialize", Track)
-    Observe("inkMotorcycleHUDGameController", "OnInitialize", Track)
+    local ok, current = pcall(function() return GameSettings.Get(VEHICLE_HUD_SETTING) end)
+    if ok and current == false then
+        GameSettings.Set(VEHICLE_HUD_SETTING, mod.vehicleHudBefore)
+        Log.Debug("Vehicle HUD restored")
+    end
+    mod.vehicleHudBefore = nil
 end
 
 function HudUtils.Hide(mod)
@@ -69,7 +65,7 @@ function HudUtils.Hide(mod)
 
     uiSystem:PushGameContext(EmptyContext())
     mod.hudHidden = true
-    SetVehicleHudVisible(false)
+    HideVehicleHud(mod)
     Log.Debug("HUD hidden")
 end
 
@@ -80,17 +76,18 @@ function HudUtils.Restore(mod)
 
     uiSystem:PopGameContext(EmptyContext())
     mod.hudHidden = false
-    SetVehicleHudVisible(true)
+    RestoreVehicleHud(mod)
     Log.Debug("HUD restored")
 end
 
 --- Panic button: pops the Empty context whether or not this mod thinks it pushed one,
---- and puts every vehicle HUD back on screen.
+--- and turns the vehicle HUD setting back on.
 function HudUtils.ForceRestore(mod)
     local uiSystem = Game.GetUISystem()
     if uiSystem then uiSystem:PopGameContext(EmptyContext()) end
+    pcall(function() GameSettings.Set(VEHICLE_HUD_SETTING, true) end)
+    mod.vehicleHudBefore = nil
     mod.hudHidden = false
-    SetVehicleHudVisible(true)
     Log.Debug("HUD forced back on")
 end
 

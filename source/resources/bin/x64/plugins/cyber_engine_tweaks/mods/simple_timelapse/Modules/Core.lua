@@ -15,6 +15,7 @@ local Undo = require("Modules/Undo")
 local TimingProbe = require("Modules/TimingProbe")
 local GameTimeCurve = require("Modules/GameTimeCurve")
 local AudioUtils = require("Modules/AudioUtils")
+local Notifications = require("Modules/Notifications")
 local Core = {}
 
 -- Seconds between the HUD returning and the "Time-lapse Finished" message and sound,
@@ -304,6 +305,7 @@ ApplyStart = function(mod, HudUtils)
     CameraUtils.LockPlayer(mod)
 
     AudioUtils.Mute(mod)
+    Notifications.Silence(mod)
 
     if mod.settings.disableAirTraffic then
         Core.DisableAirTraffic()

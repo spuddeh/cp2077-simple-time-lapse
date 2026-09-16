@@ -65,6 +65,7 @@ local mod = {
         muteRadio = true,
         muteMusic = false,
         muteSfx = false,
+        muteNotifications = true,
 
         logLevel = Log.DEFAULT_LEVEL,
         forceVehicleDilation = false, -- Experimental

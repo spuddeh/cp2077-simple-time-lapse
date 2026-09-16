@@ -11,6 +11,7 @@
 local Log = require("Modules/Log")
 local Settings = require("Modules/Settings")
 local AudioUtils = require("Modules/AudioUtils")
+local Notifications = require("Modules/Notifications")
 
 local UI = {}
 
@@ -196,6 +197,9 @@ local function DrawSettingsTab(mod, Core, HudUtils, c, spacing)
         check(IconGlyphs.VolumeOff .. " Mute Sound Effects", "muteSfx",
             "Silences sound effects for the run, city ambience and this mod's own cues included.\n" ..
             "Use it to keep a call or a message alert off a recording.")
+        check(IconGlyphs.BellOff .. " Mute Notifications", "muteNotifications",
+            "Silences the sound of message, quest and side popups for the run.\n" ..
+            "A phone call rings through its own system and is not covered; mute sound effects for that.")
         check(IconGlyphs.EyeOff .. " Auto-Hide HUD", "autoHideHud",
             "Hides the HUD and notifications when the time-lapse starts, and shows them again when it stops.\nThe Toggle HUD hotkey and the button below still work at any time.")
         check(IconGlyphs.CameraOutline .. " No Head Bob", "disableHeadBob",
@@ -304,7 +308,7 @@ local function DrawDebugTab(mod, Core, HudUtils, CameraUtils)
         {
             label = IconGlyphs.VolumeHigh .. " Restore Audio",
             tooltip = "Puts every volume this mod can mute back to full. Use if sound is still muted after a time-lapse.",
-            onClick = function() AudioUtils.ForceRestore() end,
+            onClick = function() AudioUtils.ForceRestore(); Notifications.ForceRestore() end,
         },
         {
             label = IconGlyphs.Camera .. " Force Head Bob",

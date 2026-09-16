@@ -338,11 +338,9 @@ local function DrawShotSection(mod, Core, c)
     end
 
     local frameH = ImGui.GetFrameHeight()
-    ImGui.BeginGroup()
-    ImGui.Dummy(0, frameH * 0.5)
     local newHour, hourChanged = wu.Controls.InputInt(IconGlyphs.CalendarClock, "StartHour", hour12, {
         step = 0,
-        cols = 3,
+        cols = 2,
         tooltip = "Hour, 1 to 12.",
     })
     if hourChanged then
@@ -354,24 +352,22 @@ local function DrawShotSection(mod, Core, c)
     ImGui.SameLine()
     local newMinute, minuteChanged = wu.Controls.InputInt(nil, "StartMinute", minute, {
         step = 0,
-        cols = 3,
+        cols = 2,
         tooltip = "Minute, 0 to 59.",
     })
     if minuteChanged then
         newMinute = math.max(0, math.min(newMinute, 59))
         WriteStart(hour12, newMinute, isPm)
     end
-    ImGui.EndGroup()
 
     ImGui.SameLine()
-    ImGui.BeginGroup()
-    if wu.Controls.Button("AM", (not isPm) and "active" or "inactive", frameH * 2, frameH) then
+    if wu.Controls.Button("AM", (not isPm) and "active" or "inactive", frameH * 2, 0) then
         WriteStart(hour12, minute, false)
     end
-    if wu.Controls.Button("PM", isPm and "active" or "inactive", frameH * 2, frameH) then
+    ImGui.SameLine()
+    if wu.Controls.Button("PM", isPm and "active" or "inactive", frameH * 2, 0) then
         WriteStart(hour12, minute, true)
     end
-    ImGui.EndGroup()
 
     local function TimePreset(label, presetHour)
         return {

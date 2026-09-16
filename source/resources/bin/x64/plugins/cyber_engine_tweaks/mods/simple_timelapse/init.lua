@@ -17,6 +17,7 @@ local Cron = require("Modules/Cron")
 local GameSession = require("Modules/GameSession")
 local Notifications = require("Modules/Notifications")
 local Presets = require("Modules/Presets")
+local HudProbe = require("Modules/HudProbe")
 
 local mod = {
     version = "v1.3.0",
@@ -104,6 +105,7 @@ end)
 registerForEvent("onInit", function()
     Settings.Load(mod, Core)
     HudUtils.Repair(mod)
+    HudProbe.Init(mod)
     Notifications.Init(mod)
     Presets.Load()
     Log.SetLevel(mod.settings.logLevel)

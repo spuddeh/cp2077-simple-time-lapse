@@ -16,6 +16,7 @@ local Settings = require("Modules/Settings")
 local AudioUtils = require("Modules/AudioUtils")
 local Notifications = require("Modules/Notifications")
 local Presets = require("Modules/Presets")
+local HudProbe = require("Modules/HudProbe")
 
 local UI = {}
 
@@ -495,6 +496,13 @@ local function DrawDebugSection(mod, Core, HudUtils, CameraUtils)
             label = IconGlyphs.Camera .. " Force Head Bob",
             tooltip = "Puts additive camera motion back to full.",
             onClick = function() CameraUtils.ForceRestore(mod) end,
+        },
+    }, { normalSpacing = true })
+    wu.Controls.ButtonRow({
+        {
+            label = IconGlyphs.FileSearchOutline .. " Log HUD State",
+            tooltip = "Writes the UI context stack and every HUD setting to the log. Debug level only.",
+            onClick = function() HudProbe.Dump(mod, "manual") end,
         },
     }, { normalSpacing = true })
     wu.Controls.ButtonRow({

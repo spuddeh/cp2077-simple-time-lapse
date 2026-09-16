@@ -100,6 +100,7 @@ end)
 registerForEvent("onInit", function()
     Settings.Load(mod, Core)
     Notifications.Init(mod)
+    HudUtils.Init(mod)
     Presets.Load()
     Log.SetLevel(mod.settings.logLevel)
     -- Loading a save or quitting to the menu ends the session without a Stop.

@@ -239,6 +239,7 @@ local function DrawShotSection(mod, Core, c)
         Settings.Save(mod)
     end
     wu.Tooltips.Show("Speeds up ONLY the Time of Day (Sun/Stars).\nNPCs and Traffic move at normal speed.\nBest for sunsets/sunrises.")
+    ImGui.EndDisabled()
 
     wu.Controls.SectionHeader("Speed", 6, 4, nil, nil, { separatorAfter = true })
     ImGui.BeginDisabled(runLocked)

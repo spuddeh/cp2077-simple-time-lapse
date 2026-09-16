@@ -16,6 +16,7 @@ local Log = require("Modules/Log")
 local Cron = require("Modules/Cron")
 local GameSession = require("Modules/GameSession")
 local Notifications = require("Modules/Notifications")
+local Presets = require("Modules/Presets")
 
 local mod = {
     version = "v1.3.0",
@@ -98,6 +99,7 @@ end)
 registerForEvent("onInit", function()
     Settings.Load(mod, Core)
     Notifications.Init(mod)
+    Presets.Load()
     Log.SetLevel(mod.settings.logLevel)
     -- Loading a save or quitting to the menu ends the session without a Stop.
     GameSession.OnEnd(function() Core.Cleanup(mod, HudUtils) end)

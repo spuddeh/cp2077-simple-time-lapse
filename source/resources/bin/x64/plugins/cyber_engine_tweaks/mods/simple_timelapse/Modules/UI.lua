@@ -636,7 +636,7 @@ function UI.Draw(mod, Core, HudUtils, CameraUtils)
     binding = binding or wu.Controls.bind(mod.settings, mod.defaults, function() Settings.Save(mod) end)
 
     wu.SetConstraints(480, 460, 4000, 4000, WINDOW_NAME)
-    ImGui.SetNextWindowSize(520, 760, ImGuiCond.FirstUseEver)
+    ImGui.SetNextWindowSize(720, 960, ImGuiCond.FirstUseEver)
 
     -- First return is the title-bar close button, second is visibility (false while collapsed).
     local open, visible = wu.Begin(WINDOW_NAME, true)

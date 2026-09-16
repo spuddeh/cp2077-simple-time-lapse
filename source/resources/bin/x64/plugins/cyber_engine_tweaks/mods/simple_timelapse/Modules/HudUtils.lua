@@ -67,7 +67,7 @@ function HudUtils.Hide(mod)
 
     -- Already in a vehicle: its HUD is on screen now, not on a later spawn.
     local player = Game.GetPlayer()
-    if player and player:IsInVehicle() then CoverVehicleHud(mod) end
+    if player and Game.GetMountedVehicle(player) then CoverVehicleHud(mod) end
 end
 
 function HudUtils.Restore(mod)

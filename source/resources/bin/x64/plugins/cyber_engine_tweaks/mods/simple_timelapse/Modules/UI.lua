@@ -58,18 +58,16 @@ local function SelectedPresetName()
     return Presets.Names()[presetIndex + 1]
 end
 
-local function DrawPresetRow(mod, Core, spacing)
+local function DrawPresetRow(mod, Core)
     local names = Presets.Names()
     if presetIndex > #names - 1 then presetIndex = math.max(#names - 1, 0) end
 
     local selected = SelectedPresetName()
-    local availW = ImGui.GetContentRegionAvail()
     local buttonW = 78
-    local comboW = availW - (buttonW + spacing) * 2
 
     ImGui.BeginDisabled(mod.isActive)
-    ImGui.SetNextItemWidth(comboW)
     local newIndex, changed = wu.Controls.Combo(IconGlyphs.FolderStarOutline, "Preset", presetIndex, names, {
+        cols = 7,
         tooltip = "Loads a saved set of options.\nA preset carries every setting except the log level and Traffic Frenzy.",
     })
     if changed then
@@ -114,8 +112,8 @@ local function DrawPresetRow(mod, Core, spacing)
     })
 
     if naming then
-        ImGui.SetNextItemWidth(comboW)
         nameInput = wu.Controls.InputText(IconGlyphs.RenameBox, "PresetName", nameInput, {
+            cols = 7,
             maxLength = 64,
             tooltip = "Name this preset.",
         })
@@ -195,8 +193,35 @@ end
 -- ### SECTIONS ###
 -- =================================================================
 
-local function DrawShotSection(mod, Core, c, spacing)
-    local bodyW = ImGui.GetContentRegionAvail()
+-- Time units, shared by the duration and the Clock-mode speed. Index is the unit + 1.
+local UNIT_SECONDS = { 1, 60, 3600 }
+local UNIT_WORD = { "second", "minute", "hour" }
+local UNIT_LABEL = { "Seconds", "Minutes", "Hours" }
+local DURATION_MAX = { 60, 60, 12 }
+local CLOCK_MAX = { 60, 60, 2 }
+
+--- Splits a multiplier into a value and the largest unit it divides into evenly.
+local function SpeedParts(speed)
+    if speed >= 3600 and speed % 3600 == 0 then return math.floor(speed / 3600), 2 end
+    if speed >= 60 and speed % 60 == 0 then return math.floor(speed / 60), 1 end
+    return math.max(1, math.floor(speed)), 0
+end
+
+--- Seconds / Minutes / Hours as one button each, the current unit highlighted.
+local function UnitRow(unit, maxima, onPick)
+    local defs = {}
+    for i, label in ipairs(UNIT_LABEL) do
+        defs[i] = {
+            label = label,
+            style = (unit == i - 1) and "active" or "inactive",
+            tooltip = string.format("Up to %d %ss", maxima[i], UNIT_WORD[i]),
+            onClick = function() onPick(i - 1) end,
+        }
+    end
+    wu.Controls.ButtonRow(defs, { normalSpacing = true })
+end
+
+local function DrawShotSection(mod, Core, c)
     local runLocked = mod.isActive
 
     if runLocked then
@@ -219,56 +244,77 @@ local function DrawShotSection(mod, Core, c, spacing)
     wu.Tooltips.Show("Speeds up ONLY the Time of Day (Sun/Stars).\nNPCs and Traffic move at normal speed.\nBest for sunsets/sunrises.")
 
     wu.Controls.SectionHeader("Speed", 6, 4, nil, nil, { separatorAfter = true })
-    local maxSpeed = Core.GetMaxSpeed(mod)
-    local speedTooltip = "0 = pause | 0.5x = half speed | 1x = normal | 10x = the engine's maximum"
-    if mod.settings.mode == 1 then
-        speedTooltip = "How fast the clock moves.\n1x = real time | 60x = a game minute a second | 3600x = a game hour a second"
-    end
-    c:SliderFloat(IconGlyphs.Speedometer, "speed", 0.0, maxSpeed, {
-        format = "%.1fx",
-        tooltip = speedTooltip .. TYPE_HINT,
-    })
+    ImGui.BeginDisabled(runLocked)
+    if mod.settings.mode == 0 then
+        c:SliderFloat(IconGlyphs.Speedometer, "speed", 0.0, Core.GetMaxSpeed(mod), {
+            format = "%.1fx",
+            tooltip = "0 = pause | 0.5x = half speed | 1x = normal | 10x is the engine maximum" .. TYPE_HINT,
+        })
 
-    local quickSpeeds = { 0.5, 2, 5, 10 }
-    if mod.settings.mode == 1 then quickSpeeds = { 1, 60, 600, 3600 } end
+        local speedRow = {}
+        for i, sp in ipairs({ 0.5, 2, 5, 10 }) do
+            speedRow[i] = {
+                label = sp .. "x",
+                style = (mod.settings.speed == sp) and "active" or "inactive",
+                onClick = function()
+                    mod.settings.speed = sp
+                    Settings.Save(mod)
+                end,
+            }
+        end
+        wu.Controls.ButtonRow(speedRow, { normalSpacing = true })
+    else
+        -- Clock speed reads as a length of game time per real second, because a bare
+        -- multiplier over four orders of magnitude is unusable on a slider.
+        local value, unit = SpeedParts(mod.settings.speed)
+        UnitRow(unit, CLOCK_MAX, function(newUnit)
+            mod.settings.speed = math.min(value, CLOCK_MAX[newUnit + 1]) * UNIT_SECONDS[newUnit + 1]
+            Core.ClampSpeed(mod)
+            Settings.Save(mod)
+        end)
 
-    local speedRow = {}
-    for i, sp in ipairs(quickSpeeds) do
-        speedRow[i] = {
-            label = sp .. "x",
-            style = (mod.settings.speed == sp) and "active" or "inactive",
-            onClick = function()
-                mod.settings.speed = sp
-                Settings.Save(mod)
-            end,
-        }
+        local newValue, changed = wu.Controls.SliderInt(IconGlyphs.Speedometer, "ClockSpeed", value, 1,
+            CLOCK_MAX[unit + 1], {
+                format = string.format("%d " .. UNIT_WORD[unit + 1] .. "%s per real second", value,
+                    value == 1 and "" or "s"),
+                tooltip = "How much game time passes each real second." .. TYPE_HINT,
+            })
+        if changed then
+            mod.settings.speed = newValue * UNIT_SECONDS[unit + 1]
+            Core.ClampSpeed(mod)
+            Settings.Save(mod)
+        end
+        wu.Controls.TextMuted(string.format("%.0fx normal speed", mod.settings.speed))
     end
-    wu.Controls.ButtonRow(speedRow, { normalSpacing = true })
     ImGui.EndDisabled()
 
     wu.Controls.SectionHeader("Duration", 6, 4, nil, nil, { separatorAfter = true })
-    local halfW = (bodyW - spacing) / 2
-    ImGui.PushItemWidth(halfW)
-    local val, changed = wu.Controls.InputFloat(IconGlyphs.TimerSand, "DurInput", mod.ui.durationVal, {
-        step = 0.25,
-        stepFast = 1.0,
-        tooltip = "How long the run lasts in real time.\nSet it to 0 to run until you stop it.",
+    c:Checkbox(IconGlyphs.Infinity .. " Run until stopped", "runUntilStopped", {
+        tooltip = "Runs with no end, until you press Stop or the hotkey.",
+        onChange = function() Core.RecalcDuration(mod) end,
     })
-    if changed then
-        mod.ui.durationVal = math.max(0, val)
-        Core.RecalcDuration(mod)
-        Settings.Save(mod)
+
+    if not mod.settings.runUntilStopped then
+        UnitRow(mod.ui.durationUnit, DURATION_MAX, function(newUnit)
+            mod.ui.durationUnit = newUnit
+            mod.ui.durationVal = math.min(mod.ui.durationVal, DURATION_MAX[newUnit + 1])
+            Core.RecalcDuration(mod)
+            Settings.Save(mod)
+        end)
+
+        local durValue = math.max(1, math.floor(mod.ui.durationVal))
+        local newDur, durChanged = wu.Controls.SliderInt(IconGlyphs.TimerSand, "DurValue", durValue, 1,
+            DURATION_MAX[mod.ui.durationUnit + 1], {
+                format = string.format("%d " .. UNIT_WORD[mod.ui.durationUnit + 1] .. "%s", durValue,
+                    durValue == 1 and "" or "s"),
+                tooltip = "How long the run lasts in real time." .. TYPE_HINT,
+            })
+        if durChanged then
+            mod.ui.durationVal = newDur
+            Core.RecalcDuration(mod)
+            Settings.Save(mod)
+        end
     end
-    ImGui.PopItemWidth()
-    ImGui.SameLine()
-    ImGui.PushItemWidth(halfW)
-    local unit, unitChanged = wu.Controls.Combo(nil, "DurUnit", mod.ui.durationUnit, mod.ui.unitLabels)
-    if unitChanged then
-        mod.ui.durationUnit = unit
-        Core.RecalcDuration(mod)
-        Settings.Save(mod)
-    end
-    ImGui.PopItemWidth()
 
     c:SliderFloat(IconGlyphs.TimerOutline, "startDelay", 0.0, 30.0, {
         format = "%.1fs",
@@ -278,7 +324,7 @@ local function DrawShotSection(mod, Core, c, spacing)
 
     wu.Controls.SectionHeader("Start Time", 6, 4, nil, nil, { separatorAfter = true })
     local newStart, startChanged = wu.Controls.TimeDrag(IconGlyphs.CalendarClock, "StartTime", mod.settings.startSeconds, {
-        tooltip = "The time of day a run starts from. Drag to move it by the minute, double-click to type one.",
+        tooltip = "The time of day a run starts from.\nDrag to move it a minute at a time, or double-click and type a time such as 8:00 am.",
     })
     if startChanged then
         mod.settings.startSeconds = newStart % 86400
@@ -302,7 +348,8 @@ local function DrawShotSection(mod, Core, c, spacing)
     c:Checkbox(IconGlyphs.History .. " Set Time on Start", "useStartTime",
         { tooltip = "When the time-lapse starts, set the game time to the time above." })
     if mod.settings.useStartTime then
-        c:Checkbox(IconGlyphs.Restore .. " Restore Time on Stop", "restoreTime",
+        ImGui.SameLine()
+        c:Checkbox(IconGlyphs.Restore .. " Restore on Stop", "restoreTime",
             { tooltip = "When the time-lapse stops, put the game time back to what it was before Start." })
     end
 
@@ -557,15 +604,14 @@ function UI.Draw(mod, Core, HudUtils, CameraUtils)
     end
 
     if visible then
-        local spacing = ImGui.GetStyle().ItemSpacing.x
 
         DrawStatusLine(mod)
-        DrawPresetRow(mod, Core, spacing)
+        DrawPresetRow(mod, Core)
         wu.Controls.Separator(2, 2)
         DrawSummary(mod, Core)
 
         local sections = {
-            { label = IconGlyphs.MovieRoll .. " Shot",   draw = function() DrawShotSection(mod, Core, binding, spacing) end },
+            { label = IconGlyphs.MovieRoll .. " Shot",   draw = function() DrawShotSection(mod, Core, binding) end },
             { label = IconGlyphs.CityVariantOutline .. " Scene", draw = function() DrawSceneSection(mod, binding) end },
             { label = IconGlyphs.VolumeHigh .. " Audio", draw = function() DrawAudioSection(mod, binding) end },
             { label = IconGlyphs.AccountOutline .. " Player", draw = function() DrawPlayerSection(mod, HudUtils, binding) end },
@@ -573,7 +619,8 @@ function UI.Draw(mod, Core, HudUtils, CameraUtils)
         }
 
         local _, availH = ImGui.GetContentRegionAvail()
-        local paneHeight = math.max(availH - footerHeight, MIN_PANE_HEIGHT)
+        local spacingY = ImGui.GetStyle().ItemSpacing.y
+        local paneHeight = math.max(availH - footerHeight - spacingY * 2, MIN_PANE_HEIGHT)
 
         wu.Controls.Row("Main", {
             {

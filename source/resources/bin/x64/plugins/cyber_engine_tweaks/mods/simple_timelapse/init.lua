@@ -51,6 +51,7 @@ local mod = {
         mode = 0, -- 0: Simulation (Dilation), 1: Clock Only
         speed = 5.0,
         duration = 10.0,
+        runUntilStopped = false,
         useStartTime = false,
         restoreTime = false,
         startDelay = 3.0,

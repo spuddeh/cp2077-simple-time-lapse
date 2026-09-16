@@ -64,6 +64,13 @@ function Settings.Load(mod, Core)
         end
     end
 
+    -- A file written before the toggle existed said "run until stopped" with a duration of 0.
+    if type(data.settings) == "table" and data.settings.runUntilStopped == nil
+        and type(data.ui) == "table" and data.ui.durationVal == 0 then
+        mod.settings.runUntilStopped = true
+        mod.ui.durationVal = mod.uiDefaults.durationVal
+    end
+
     -- A file written before the start time became one value carries the three combo keys.
     if type(data.settings) == "table" and data.settings.startSeconds == nil
         and type(data.settings.comboHour) == "number" then

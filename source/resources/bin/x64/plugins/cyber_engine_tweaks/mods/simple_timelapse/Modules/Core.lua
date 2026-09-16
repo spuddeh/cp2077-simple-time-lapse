@@ -180,6 +180,10 @@ function Core.ClampSpeed(mod)
 end
 
 function Core.RecalcDuration(mod)
+    if mod.settings.runUntilStopped then
+        mod.settings.duration = 0
+        return
+    end
     local mult = 1.0
     if mod.ui.durationUnit == 1 then mult = 60.0 end
     if mod.ui.durationUnit == 2 then mult = 3600.0 end

@@ -71,6 +71,10 @@ local mod = {
         muteSfx = false,
         muteNotifications = true,
 
+        -- Set while the vehicle HUD setting is off, so a session that ends hidden repairs it.
+        vehicleHudPending = false,
+        vehicleHudRestore = true,
+
         logLevel = Log.DEFAULT_LEVEL,
         forceVehicleDilation = false, -- Experimental
         frenzySpeedMult = 1.5,
@@ -99,6 +103,7 @@ end)
 
 registerForEvent("onInit", function()
     Settings.Load(mod, Core)
+    HudUtils.Repair(mod)
     Notifications.Init(mod)
     Presets.Load()
     Log.SetLevel(mod.settings.logLevel)

@@ -1,6 +1,6 @@
 # Simple Time-lapse (Timelapse Time Lapse) - Time Dilation and HUD Toggle — Nexus Changelogs
 
-### [Unreleased - v1.4.0]
+### [Unreleased - v2.0.0]
 - New: Mute Radio, on by default, silences the Radioport and the car radio for the length of a run
 - New: Mute Music and Mute Sound Effects, both off by default, for keeping the score or a message alert off a recording
 - New: Lock Weapons is now its own setting. Lock Movement no longer empties V's hands, so the radio can keep playing during a locked shot

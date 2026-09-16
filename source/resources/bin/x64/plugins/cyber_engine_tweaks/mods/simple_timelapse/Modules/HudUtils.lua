@@ -8,52 +8,58 @@
 -- prototype_hud.inkhud mask that context out, so one push hides the HUD, notifications
 -- included, and one pop restores it. No user setting changes.
 --
--- The vehicle widgets are visible under VehicleMounted, a context the game pushes above
--- the Empty one on mounting, so a second Empty goes on top of it the moment a vehicle HUD
--- spawns. Restore pops that one too, which keeps the pushes and pops balanced however
--- many times the player gets in and out.
+-- The vehicle HUD is not one of them. Its widgets list VehicleMounted as a context they
+-- are visible in, and neither a second Empty over that context nor a forced entry
+-- visibility moves them, so each vehicle HUD controller is caught as it initialises and
+-- its root widget is hidden directly - which is what the game's own HideRequest does.
 --
--- The scanner pushes its own context too, and is left alone: a scanner that cannot be
--- read is worse than a scanner on screen.
+-- The scanner pushes its own context and is left alone: a scanner that cannot be read is
+-- worse than a scanner on screen.
 -- ======================================================================================
 
 local Log = require("Modules/Log")
+local Cron = require("Modules/Cron")
 local HudUtils = {}
 
 local function EmptyContext()
     return Enum.new("UIGameContext", "Empty")
 end
 
---- Puts an Empty context above the vehicle's, once, while the HUD is meant to be hidden.
-local function CoverVehicleHud(mod)
-    if mod.vehicleHudCovered then return end
-    local uiSystem = Game.GetUISystem()
-    if not uiSystem then return end
+-- Every vehicle HUD controller seen this session. Weak keys, so a controller the game
+-- has thrown away does not stay alive here.
+local vehicleControllers = setmetatable({}, { __mode = "k" })
 
-    uiSystem:PushGameContext(EmptyContext())
-    mod.vehicleHudCovered = true
-    Log.Debug("HUD: covered the vehicle context")
+--- Shows or hides the root widget of every vehicle HUD controller still alive.
+local function SetVehicleHudVisible(visible)
+    local count = 0
+    for controller in pairs(vehicleControllers) do
+        local ok = pcall(function()
+            local root = controller:GetRootWidget()
+            if root then
+                root:SetVisible(visible)
+                count = count + 1
+            end
+        end)
+        if not ok then vehicleControllers[controller] = nil end
+    end
+    Log.Debug("Vehicle HUD set %s on %d controller(s)", visible and "visible" or "hidden", count)
 end
 
-local function UncoverVehicleHud(mod)
-    if not mod.vehicleHudCovered then return end
-    local uiSystem = Game.GetUISystem()
-    if not uiSystem then return end
-
-    uiSystem:PopGameContext(EmptyContext())
-    mod.vehicleHudCovered = false
-    Log.Debug("HUD: uncovered the vehicle context")
-end
-
---- Watches for a vehicle HUD spawning while the HUD is hidden. Registered once, because
---- an observer cannot be taken off again.
+--- Catches each vehicle HUD as it initialises. Registered once, because an observer
+--- cannot be taken off again.
 function HudUtils.Init(mod)
-    local function OnVehicleHud()
-        if mod.hudHidden then CoverVehicleHud(mod) end
+    local function Track(self)
+        vehicleControllers[self] = true
+        if not mod.hudHidden then return end
+        -- The widget tree is not always ready in the same frame the controller is.
+        SetVehicleHudVisible(false)
+        Cron.After(0.2, function()
+            if mod.hudHidden then SetVehicleHudVisible(false) end
+        end)
     end
 
-    Observe("hudCarController", "OnInitialize", OnVehicleHud)
-    Observe("inkMotorcycleHUDGameController", "OnInitialize", OnVehicleHud)
+    Observe("hudCarController", "OnInitialize", Track)
+    Observe("inkMotorcycleHUDGameController", "OnInitialize", Track)
 end
 
 function HudUtils.Hide(mod)
@@ -63,11 +69,8 @@ function HudUtils.Hide(mod)
 
     uiSystem:PushGameContext(EmptyContext())
     mod.hudHidden = true
+    SetVehicleHudVisible(false)
     Log.Debug("HUD hidden")
-
-    -- Already in a vehicle: its HUD is on screen now, not on a later spawn.
-    local player = Game.GetPlayer()
-    if player and Game.GetMountedVehicle(player) then CoverVehicleHud(mod) end
 end
 
 function HudUtils.Restore(mod)
@@ -75,21 +78,19 @@ function HudUtils.Restore(mod)
     local uiSystem = Game.GetUISystem()
     if not uiSystem then return end
 
-    UncoverVehicleHud(mod)
     uiSystem:PopGameContext(EmptyContext())
     mod.hudHidden = false
+    SetVehicleHudVisible(true)
     Log.Debug("HUD restored")
 end
 
---- Panic button: pops what this mod pushes, whether or not it thinks it pushed them.
+--- Panic button: pops the Empty context whether or not this mod thinks it pushed one,
+--- and puts every vehicle HUD back on screen.
 function HudUtils.ForceRestore(mod)
     local uiSystem = Game.GetUISystem()
-    if uiSystem then
-        if mod.vehicleHudCovered then uiSystem:PopGameContext(EmptyContext()) end
-        uiSystem:PopGameContext(EmptyContext())
-    end
-    mod.vehicleHudCovered = false
+    if uiSystem then uiSystem:PopGameContext(EmptyContext()) end
     mod.hudHidden = false
+    SetVehicleHudVisible(true)
     Log.Debug("HUD forced back on")
 end
 

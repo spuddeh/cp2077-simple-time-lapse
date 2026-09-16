@@ -1,3 +1,18 @@
+### [2026-09-16] Session
+- **[Simple Time-lapse] Core.lua / UI.lua v1.3.0**:
+    - [Fix] A run reads mode, speed, dilation and Traffic Frenzy speed from `mod.run`, saved in `ApplyStart`. Switching to Clock mid-run wrote a stale `startTotalSeconds` to the clock; a speed change miscounted `elapsedTime` and the run stats.
+    - [New] Mode, speed slider, speed input, speed presets and the Vehicle Speed Multiplier are wrapped in `ImGui.BeginDisabled` while `mod.isActive`.
+    - [Fix] `ExecuteStart` runs `ApplyStart` in `pcall`; a throw runs `Undo.RunAll` instead of leaving the player locked with no Stop button. `Core.DisableAirTraffic` and the air-traffic re-apply nil-check `Game.GetQuestsSystem()`.
+    - [Fix] `RefusedInCombat` is checked again in `ExecuteStart`, so combat entered during the countdown refuses the run.
+    - [Fix] `lastRunStats.factor` is nil under one expected game second; the Debug tab and the Stop log line read "n/a" instead of a ratio of rounding noise.
+- **[Simple Time-lapse] AudioUtils.lua (new) v1.3.0**:
+    - [New] `Mute` turns `RadioportVolume`, `CarRadioVolume`, `MusicVolume` and `SfxVolume` to 0 per the `muteRadio` / `muteMusic` / `muteSfx` settings, each with its own undo that restores only a level still at 0.
+    - [New] `ForceRestore` panic button on the Debug tab puts any of those sliders sitting at 0 back to 100.
+- **[Simple Time-lapse] CameraUtils.lua v1.3.0**:
+    - [New] `lockWeapons` applies `GameplayRestriction.NoCombat` on its own; `lockMovement` applies only `NoMovement`. `NoCombat` forces empty hands, which is what the game uses to silence the Radioport.
+- **[Simple Time-lapse] VehicleDilation.lua v1.3.0**:
+    - [Refactor] Drive-command comments state the speed limits rather than the values they replaced.
+
 ### [2026-02-22] Initial
 - Repository created from workspace restructure.
 

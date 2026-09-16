@@ -1,5 +1,16 @@
 # Simple Time-lapse (Timelapse Time Lapse) - Time Dilation and HUD Toggle — Nexus Changelogs
 
+### [Unreleased - v1.4.0]
+- New: Mute Radio, on by default, silences the Radioport and the car radio for the length of a run
+- New: Mute Music and Mute Sound Effects, both off by default, for keeping the score or a message alert off a recording
+- New: Lock Weapons is now its own setting. Lock Movement no longer empties V's hands, so the radio can keep playing during a locked shot
+- New: Restore Audio button on the Debug tab, for a volume left muted by a crash mid-run
+- New: Mode and speed are locked while a time-lapse runs
+- Fix: Changing mode or speed during a run no longer moves the game clock to the wrong time or miscounts the run
+- Fix: A time-lapse that fails to start puts back everything it changed instead of leaving V locked in place
+- Fix: Starting a fight during the countdown now refuses the run, as it does at the button press
+- Fix: Run statistics read n/a instead of a meaningless percentage after a 0x run
+
 ### 1.3.0
 - Added Disable Air Traffic option to remove flying AVs during time-lapse
 - Added Disable Crowds & Traffic option to clear pedestrians and street vehicles

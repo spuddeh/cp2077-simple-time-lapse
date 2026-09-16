@@ -199,7 +199,7 @@ local function DrawSettingsTab(mod, Core, HudUtils, c, spacing)
             "Use it to keep a call or a message alert off a recording.")
         check(IconGlyphs.BellOff .. " Mute Notifications", "muteNotifications",
             "Silences the sound of message, quest and side popups for the run.\n" ..
-            "A phone call rings through its own system and is not covered; mute sound effects for that.")
+            "A call that arrives during a run has its ringtone cut the moment it starts.")
         check(IconGlyphs.EyeOff .. " Auto-Hide HUD", "autoHideHud",
             "Hides the HUD and notifications when the time-lapse starts, and shows them again when it stops.\nThe Toggle HUD hotkey and the button below still work at any time.")
         check(IconGlyphs.CameraOutline .. " No Head Bob", "disableHeadBob",

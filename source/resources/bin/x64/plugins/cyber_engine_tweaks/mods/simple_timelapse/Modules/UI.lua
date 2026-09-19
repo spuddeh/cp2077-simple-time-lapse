@@ -332,10 +332,6 @@ local function DrawShotSection(mod, Core, c)
             ImGui.Text(string.format("%s in %s", Core.FormatDuration(span), Core.FormatDuration(mod.settings.duration)))
             ImGui.SameLine()
             wu.Controls.TextMuted(string.format("%.0fx, %s per real second", speed, Core.FormatDuration(speed)))
-            if speed > Core.GetMaxSpeed(mod) then
-                wu.Controls.TextDanger(string.format("That needs %.0fx and the limit is %.0fx. Lengthen the run.",
-                    speed, Core.GetMaxSpeed(mod)))
-            end
         end
     elseif mod.settings.mode == 1 then
         -- Clock speed reads as a length of game time per real second, because a bare

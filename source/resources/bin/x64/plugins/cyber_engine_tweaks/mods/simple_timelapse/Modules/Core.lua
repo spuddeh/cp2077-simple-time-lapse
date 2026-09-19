@@ -275,21 +275,12 @@ local function RefusedInCombat(mod)
     return true
 end
 
---- Auto speed needs a set length, and a speed the Clock ceiling allows.
+--- Auto speed needs a set length. It has no ceiling: the run's length decides it.
 local function RefusedAuto(mod)
-    if not Core.IsAuto(mod) then return false end
-    local speed = Core.AutoSpeed(mod)
-    if not speed then
-        Core.NotifyWarning(mod, "Auto speed needs a set duration")
-        Log.Info("Start refused: auto speed with no duration")
-        return true
-    end
-    if speed > CLOCK_MAX_SPEED then
-        Core.NotifyWarning(mod, "Auto speed is over the limit, lengthen the run")
-        Log.Info("Start refused: auto speed %.0fx is over %.0fx", speed, CLOCK_MAX_SPEED)
-        return true
-    end
-    return false
+    if not Core.IsAuto(mod) or Core.AutoSpeed(mod) then return false end
+    Core.NotifyWarning(mod, "Auto speed needs a set duration")
+    Log.Info("Start refused: auto speed with no duration")
+    return true
 end
 
 local ApplyStart

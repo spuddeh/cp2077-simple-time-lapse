@@ -420,7 +420,7 @@ local function DrawShotSection(mod, Core, c)
         end
         ImGui.PushID(id .. "Quick")
         wu.Controls.ButtonRow({
-            Quick("Dawn 6 AM", 6), Quick("Noon 12 PM", 12), Quick("Dusk 6 PM", 18), Quick("Midnight 12 AM", 0),
+            Quick("6 AM", 6), Quick("12 PM", 12), Quick("6 PM", 18), Quick("12 AM", 0),
         }, { normalSpacing = true })
         ImGui.PopID()
     end

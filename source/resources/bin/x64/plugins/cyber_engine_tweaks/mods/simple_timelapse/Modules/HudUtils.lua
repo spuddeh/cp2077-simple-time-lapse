@@ -4,13 +4,17 @@
 -- Author:       Spuddeh
 --
 -- DESCRIPTION:
--- Hides and restores the HUD by hiding the HUD layer's own window, reached through
--- Codeware's inkSystem. Every HUD widget draws inside it, notifications, the vehicle HUD
--- and the scanner included, and the game never sets its visibility, so it stays hidden
--- whatever context the game pushes. No user setting and no UI context changes.
+-- Hides and restores the HUD by hiding the Root canvas of the HUD layer, reached through
+-- Codeware's inkSystem. Every game HUD widget draws inside Root, notifications, the
+-- vehicle HUD and the scanner included, and the game never sets its visibility, so it
+-- stays hidden whatever context the game pushes. No user setting and no UI context
+-- changes.
 --
--- The layer is resolved on every call rather than cached, because a new session builds
--- a new one. Without Codeware there is no layer to reach and the HUD is left alone.
+-- Root, not the layer window: other mods parent overlays onto the window beside Root,
+-- XUtils' cinematic bars among them, and those stay on screen.
+--
+-- Root is resolved on every call rather than cached, because a new session builds a new
+-- layer. Without Codeware there is no layer to reach and the HUD is left alone.
 -- ======================================================================================
 
 local Log = require("Modules/Log")
@@ -18,12 +22,17 @@ local HudUtils = {}
 
 local warnedMissing = false
 
---- The HUD layer's window, or nil when Codeware is missing or no session is running.
-local function LayerWindow()
-    local ok, window = pcall(function()
-        return Game.GetInkSystem():GetLayer(CName.new("inkHUDLayer")):GetVirtualWindow()
+--- The HUD layer's Root canvas, or nil when Codeware is missing or no session is running.
+local function HudRoot()
+    local ok, root = pcall(function()
+        local window = Game.GetInkSystem():GetLayer(CName.new("inkHUDLayer")):GetVirtualWindow()
+        for i = 0, window:GetNumChildren() - 1 do
+            local child = window:GetWidget(i)
+            if child:GetName().value == "Root" then return child end
+        end
+        return nil
     end)
-    if ok and window then return window end
+    if ok and root then return root end
     return nil
 end
 
@@ -34,15 +43,15 @@ function HudUtils.IsAvailable()
 end
 
 local function SetHudVisible(visible)
-    local window = LayerWindow()
-    if not window then
+    local root = HudRoot()
+    if not root then
         if not warnedMissing then
             Log.Warn("The HUD layer is out of reach, so the HUD is left alone. Hiding it needs Codeware")
             warnedMissing = true
         end
         return false
     end
-    window:SetVisible(visible)
+    root:SetVisible(visible)
     return true
 end
 
@@ -60,7 +69,7 @@ function HudUtils.Restore(mod)
     Log.Debug("HUD restored")
 end
 
---- Panic button: shows the HUD layer whether or not this mod thinks it hid it.
+--- Panic button: shows the HUD whether or not this mod thinks it hid it.
 function HudUtils.ForceRestore(mod)
     SetHudVisible(true)
     mod.hudHidden = false

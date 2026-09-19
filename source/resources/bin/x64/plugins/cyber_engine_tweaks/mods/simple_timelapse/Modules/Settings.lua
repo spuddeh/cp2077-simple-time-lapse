@@ -9,6 +9,7 @@
 -- ======================================================================================
 
 local Log = require("Modules/Log")
+local XUtilsFx = require("Modules/XUtilsFx")
 
 local Settings = {}
 
@@ -22,11 +23,16 @@ local SESSION_ONLY = {
 -- Fields of mod.ui that are saved alongside mod.settings.
 local UI_KEYS = { "durationVal", "durationUnit", "clockUnit" }
 
+--- A copy that shares no table with the original, so a list setting edited later does not
+--- change the defaults or a preset along with it.
 local function copy(t)
     local out = {}
-    for k, v in pairs(t) do out[k] = v end
+    for k, v in pairs(t) do
+        if type(v) == "table" then out[k] = copy(v) else out[k] = v end
+    end
     return out
 end
+Settings.Copy = copy
 
 --- Records the current values as defaults. Call once, before Load.
 function Settings.Init(mod)
@@ -82,6 +88,7 @@ function Settings.Load(mod, Core)
         Log.Debug("Start time migrated to %d seconds", mod.settings.startSeconds)
     end
 
+    mod.settings.xuWeatherList = XUtilsFx.SanitizeWeatherList(mod.settings.xuWeatherList)
     if not Log.IsLevel(mod.settings.logLevel) then mod.settings.logLevel = mod.defaults.logLevel end
     Core.ClampSpeed(mod)
     Core.RecalcDuration(mod)

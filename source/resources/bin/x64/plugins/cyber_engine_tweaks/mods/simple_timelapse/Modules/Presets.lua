@@ -15,6 +15,8 @@
 -- ======================================================================================
 
 local Log = require("Modules/Log")
+local Settings = require("Modules/Settings")
+local XUtilsFx = require("Modules/XUtilsFx")
 
 local Presets = {}
 
@@ -152,7 +154,7 @@ function Presets.Save(mod, name)
     if type(name) ~= "string" or name == "" then return false end
 
     local settings = {}
-    for k, v in pairs(mod.settings) do
+    for k, v in pairs(Settings.Copy(mod.settings)) do
         if not EXCLUDED[k] then settings[k] = v end
     end
     local ui = {}
@@ -170,9 +172,10 @@ local function CopyInto(mod, settings, ui)
     for k, v in pairs(settings) do
         local default = mod.defaults[k]
         if not EXCLUDED[k] and default ~= nil and type(v) == type(default) then
-            mod.settings[k] = v
+            if type(v) == "table" then mod.settings[k] = Settings.Copy(v) else mod.settings[k] = v end
         end
     end
+    mod.settings.xuWeatherList = XUtilsFx.SanitizeWeatherList(mod.settings.xuWeatherList)
     for _, k in ipairs(UI_KEYS) do
         if type(ui[k]) == type(mod.uiDefaults[k]) then mod.ui[k] = ui[k] end
     end

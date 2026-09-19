@@ -16,6 +16,7 @@ local Settings = require("Modules/Settings")
 local AudioUtils = require("Modules/AudioUtils")
 local Notifications = require("Modules/Notifications")
 local Presets = require("Modules/Presets")
+local XUtilsFx = require("Modules/XUtilsFx")
 
 local UI = {}
 
@@ -186,6 +187,18 @@ local function DrawSummary(mod, Core)
     if s.disableHeadBob then Chip(IconGlyphs.CameraOutline, "Head bob off") end
     if s.useStartTime and s.restoreTime then Chip(IconGlyphs.Restore, "Game time put back on Stop") end
     if s.startDelay > 0 then Chip(IconGlyphs.TimerOutline, string.format("%.1fs countdown", s.startDelay)) end
+    if XUtilsFx.IsAvailable() then
+        if s.xuLens then
+            Chip(IconGlyphs.CameraIris, string.format("Depth of field, %.0f mm at f/%.1f", s.xuFocalLength, s.xuFstop))
+        end
+        if s.xuWeather and #s.xuWeatherList > 0 then
+            Chip(IconGlyphs.WeatherCloudy, string.format("Weather sequence, %d state%s", #s.xuWeatherList,
+                #s.xuWeatherList == 1 and "" or "s"))
+        end
+        if s.xuBars then Chip(IconGlyphs.AspectRatio, "Cinematic bars " .. XUtilsFx.BAR_LABELS[s.xuBarsRatio + 1]) end
+        if s.xuFadeIn then Chip(IconGlyphs.Transition, "Fade in from black") end
+        if s.xuFadeOut then Chip(IconGlyphs.Transition, "Fade out to black") end
+    end
     ImGui.NewLine()
 end
 
@@ -474,6 +487,232 @@ local function DrawPlayerSection(mod, HudUtils, c)
     end
 end
 
+local function DrawLensPanel(mod, c)
+    local s = mod.settings
+    c:Checkbox(IconGlyphs.CameraIris .. " Depth of Field", "xuLens",
+        { tooltip = "Shoots the run through an XUtils camera with a real lens, so what is out of focus blurs.\nThe camera holds still at V's view for the whole run, whatever the camera lock says." })
+    if not s.xuLens then return end
+
+    local matching = XUtilsFx.MatchingPreset(s)
+    local presetRow = {}
+    for i, preset in ipairs(XUtilsFx.LENS_PRESETS) do
+        presetRow[i] = {
+            label = preset.name,
+            style = (matching == preset.name) and "active" or "inactive",
+            tooltip = string.format("%.0f mm at f/%.1f, blur %.1f", preset.focalLength, preset.fstop, preset.intensity),
+            onClick = function()
+                XUtilsFx.ApplyPreset(mod, preset)
+                Settings.Save(mod)
+            end,
+        }
+    end
+    ImGui.PushID("LensPresets")
+    wu.Controls.ButtonRow(presetRow, { normalSpacing = true })
+    ImGui.PopID()
+
+    c:SliderFloat(IconGlyphs.CameraIris, "xuFocalLength", 12.0, 500.0, {
+        format = "%.0f mm",
+        tooltip = "Focal length. Longer lenses blur the background more." .. TYPE_HINT,
+    })
+    c:SliderFloat(IconGlyphs.CameraIris, "xuFstop", 1.0, 22.0, {
+        format = "f/%.1f",
+        tooltip = "Aperture. A lower number means a shallower focus and more blur." .. TYPE_HINT,
+    })
+    c:SliderFloat(IconGlyphs.Blur, "xuDofIntensity", 0.0, 3.0, {
+        format = "%.2f",
+        tooltip = "How strong the blur is drawn, on top of what the lens gives." .. TYPE_HINT,
+    })
+    c:Combo(IconGlyphs.Blur, "xuDofMode", XUtilsFx.DOF_MODE_LABELS, {
+        tooltip = "Which side of the focus point blurs.",
+    })
+    c:Checkbox(IconGlyphs.MagnifyPlusOutline .. " Zoom with Focal Length", "xuZoomWithLens",
+        { tooltip = "Narrows the field of view to match the focal length, the way a real lens frames the shot." })
+
+    c:Checkbox(IconGlyphs.FocusAuto .. " Autofocus", "xuAutofocus",
+        { tooltip = "Keeps whatever sits at the centre of the screen in focus." })
+    if s.xuAutofocus then
+        c:SliderFloat(IconGlyphs.FocusField, "xuFocusRange", 1.0, 1000.0, {
+            format = "%.0f m",
+            tooltip = "How far the autofocus looks. Beyond it, the background stays sharp." .. TYPE_HINT,
+        })
+        c:SliderFloat(IconGlyphs.TimerOutline, "xuFocusSpeed", 0.1, 3.0, {
+            format = "%.1fs",
+            tooltip = "How long the focus takes to settle on something new." .. TYPE_HINT,
+        })
+        c:Combo(IconGlyphs.Transition, "xuFocusCurve", XUtilsFx.FOCUS_CURVES, {
+            tooltip = "How the focus eases from one distance to the next.",
+        })
+    else
+        c:SliderFloat(IconGlyphs.FocusField, "xuFocusDist", 0.1, 1000.0, {
+            format = "%.1f m",
+            tooltip = "The distance that stays sharp." .. TYPE_HINT,
+        })
+    end
+end
+
+local function DrawWeatherPanel(mod, c)
+    local s = mod.settings
+    c:Checkbox(IconGlyphs.WeatherCloudy .. " Weather Sequence", "xuWeather",
+        { tooltip = "Changes the weather through the run, one state after another.\nThe natural weather comes back on Stop." })
+    if not s.xuWeather then return end
+
+    c:Combo(IconGlyphs.WeatherCloudyClock, "xuWeatherMode", XUtilsFx.WEATHER_MODES, {
+        tooltip = "Even split: every state gets the same share of the run.\nPercent: each state gets the share you set.\nGame hours: each state lasts that much game time, and the last one holds.",
+    })
+    c:SliderFloat(IconGlyphs.Transition, "xuWeatherBlend", 0.0, 60.0, {
+        format = "%.0fs blend",
+        tooltip = "How long each change of weather takes." .. TYPE_HINT,
+    })
+
+    local states = XUtilsFx.WeatherStates()
+    if #states == 0 then
+        wu.Controls.TextMuted("No weather states are available right now.")
+        return
+    end
+    local labels = {}
+    for i, state in ipairs(states) do labels[i] = state.label end
+
+    local list = s.xuWeatherList
+    local action = nil
+    for i, entry in ipairs(list) do
+        ImGui.PushID("WeatherEntry" .. i)
+        local current = 0
+        for j, state in ipairs(states) do
+            if state.id == entry.state then current = j - 1 end
+        end
+        local picked, pickedChanged = wu.Controls.Combo(nil, "State", current, labels, { cols = 6 })
+        if pickedChanged then
+            entry.state = states[picked + 1].id
+            Settings.Save(mod)
+        end
+
+        if s.xuWeatherMode == 1 then
+            ImGui.SameLine()
+            local pct, pctChanged = wu.Controls.SliderInt(nil, "Percent", entry.percent, 1, 100, {
+                cols = 3,
+                format = "%d%%",
+                tooltip = "This state's share of the run, against the others." .. TYPE_HINT,
+            })
+            if pctChanged then
+                entry.percent = pct
+                Settings.Save(mod)
+            end
+        elseif s.xuWeatherMode == 2 then
+            ImGui.SameLine()
+            local hours, hoursChanged = wu.Controls.SliderFloat(nil, "Hours", entry.hours, 0.25, 24.0, {
+                cols = 3,
+                format = "%.2f h",
+                tooltip = "Game hours this state lasts." .. TYPE_HINT,
+            })
+            if hoursChanged then
+                entry.hours = hours
+                Settings.Save(mod)
+            end
+        end
+
+        ImGui.SameLine()
+        wu.Controls.ButtonRow({
+            {
+                icon = IconGlyphs.ChevronUp,
+                tooltip = "Move up",
+                disabled = (i == 1) and "hard" or nil,
+                onClick = function() action = { kind = "up", index = i } end,
+            },
+            {
+                icon = IconGlyphs.ChevronDown,
+                tooltip = "Move down",
+                disabled = (i == #list) and "hard" or nil,
+                onClick = function() action = { kind = "down", index = i } end,
+            },
+            {
+                icon = IconGlyphs.Delete,
+                style = "danger",
+                tooltip = "Remove",
+                onClick = function() action = { kind = "remove", index = i } end,
+            },
+        })
+        ImGui.PopID()
+    end
+
+    if action then
+        local i = action.index
+        if action.kind == "up" then
+            list[i], list[i - 1] = list[i - 1], list[i]
+        elseif action.kind == "down" then
+            list[i], list[i + 1] = list[i + 1], list[i]
+        else
+            table.remove(list, i)
+        end
+        Settings.Save(mod)
+    end
+
+    if wu.Controls.FullWidthButton(IconGlyphs.Plus .. " Add State") then
+        local last = list[#list]
+        list[#list + 1] = { state = last and last.state or states[1].id, percent = 50, hours = 1.0 }
+        Settings.Save(mod)
+    end
+    wu.Tooltips.Show("Adds a weather state to the end of the sequence.")
+
+    if #list == 0 then
+        wu.Controls.TextMuted("Add at least one state.")
+    elseif s.xuWeatherMode ~= 2 and s.runUntilStopped then
+        wu.Controls.TextMuted("Even and percent splits need a set duration. With none, the first state holds.")
+    end
+end
+
+local function DrawFramingPanel(mod, c)
+    local s = mod.settings
+    c:Checkbox(IconGlyphs.AspectRatio .. " Cinematic Bars", "xuBars",
+        { tooltip = "Letterbox bars for the length of the run." })
+    if s.xuBars then
+        c:Combo(IconGlyphs.AspectRatio, "xuBarsRatio", XUtilsFx.BAR_LABELS, {
+            tooltip = "The shape of the frame between the bars.",
+        })
+    end
+
+    c:Checkbox(IconGlyphs.Transition .. " Fade In at Start", "xuFadeIn",
+        { tooltip = "The run opens from black." })
+    if s.xuFadeIn then
+        c:SliderFloat(IconGlyphs.TimerOutline, "xuFadeInTime", 0.5, 10.0, {
+            format = "%.1fs",
+            tooltip = "How long the fade in takes." .. TYPE_HINT,
+        })
+    end
+
+    c:Checkbox(IconGlyphs.Transition .. " Fade Out at End", "xuFadeOut",
+        { tooltip = "The run closes to black, and the view comes back once everything is restored." })
+    if s.xuFadeOut then
+        c:SliderFloat(IconGlyphs.TimerOutline, "xuFadeOutTime", 0.5, 10.0, {
+            format = "%.1fs",
+            tooltip = "How long before the end the fade out starts." .. TYPE_HINT,
+        })
+        if s.runUntilStopped then
+            wu.Controls.TextMuted("Fade out needs a set duration.")
+        end
+    end
+end
+
+local function DrawCinemaSection(mod, c)
+    if not XUtilsFx.IsAvailable() then
+        ImGui.PushTextWrapPos(0.0)
+        wu.Controls.TextMuted("Depth of field, a weather sequence, cinematic bars and fades need XUtils by CyanideX. Install it from Nexus Mods to use them.")
+        ImGui.PopTextWrapPos()
+        return
+    end
+
+    if mod.isActive then
+        wu.Controls.TextMuted("These options are locked while a time-lapse runs.")
+    end
+    ImGui.BeginDisabled(mod.isActive)
+    wu.Controls.SectionHeader("Lens", nil, 4, nil, nil, { separatorAfter = true })
+    DrawLensPanel(mod, c)
+    wu.Controls.SectionHeader("Weather", 6, 4, nil, nil, { separatorAfter = true })
+    DrawWeatherPanel(mod, c)
+    wu.Controls.SectionHeader("Framing", 6, 4, nil, nil, { separatorAfter = true })
+    DrawFramingPanel(mod, c)
+    ImGui.EndDisabled()
+end
+
 local function DrawDebugSection(mod, Core, HudUtils, CameraUtils)
     wu.Controls.SectionHeader("Panic controls", nil, 4, nil, nil, { separatorAfter = true })
     wu.Controls.ButtonRow({
@@ -657,6 +896,7 @@ function UI.Draw(mod, Core, HudUtils, CameraUtils)
             { label = IconGlyphs.CityVariantOutline .. " Scene", draw = function() DrawSceneSection(mod, binding) end },
             { label = IconGlyphs.VolumeHigh .. " Audio", draw = function() DrawAudioSection(mod, binding) end },
             { label = IconGlyphs.AccountOutline .. " Player", draw = function() DrawPlayerSection(mod, HudUtils, binding) end },
+            { label = IconGlyphs.Movie .. " Cinema",     draw = function() DrawCinemaSection(mod, binding) end },
             { label = IconGlyphs.Bug .. " Debug",        draw = function() DrawDebugSection(mod, Core, HudUtils, CameraUtils) end },
         }
 

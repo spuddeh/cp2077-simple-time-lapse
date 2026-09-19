@@ -16,6 +16,7 @@ local TimingProbe = require("Modules/TimingProbe")
 local GameTimeCurve = require("Modules/GameTimeCurve")
 local AudioUtils = require("Modules/AudioUtils")
 local Notifications = require("Modules/Notifications")
+local XUtilsFx = require("Modules/XUtilsFx")
 local Core = {}
 
 -- Seconds between the HUD returning and the "Time-lapse Finished" message and sound,
@@ -288,6 +289,7 @@ ApplyStart = function(mod, HudUtils)
 
     -- Every change below records its own undo, so Stop puts back only what this run changed.
     -- A HUD the player already hid is left to them, and Stop does not show it.
+    XUtilsFx.PushFadeUndo(mod)
     if mod.settings.autoHideHud and not mod.hudHidden then
         HudUtils.Hide(mod)
         if mod.hudHidden then
@@ -309,6 +311,7 @@ ApplyStart = function(mod, HudUtils)
 
     AudioUtils.Mute(mod)
     Notifications.Silence(mod)
+    XUtilsFx.Start(mod)
 
     if mod.settings.disableAirTraffic then
         Core.DisableAirTraffic()
@@ -511,6 +514,8 @@ function Core.Update(mod, delta, HudUtils)
                 ts:SetGameTimeBySeconds(math.floor(targetTime))
             end
         end
+
+        XUtilsFx.Update(mod, Core.GetTotalGameSeconds())
 
         if mod.settings.duration > 0 then
             if mod.elapsedTime >= mod.settings.duration then

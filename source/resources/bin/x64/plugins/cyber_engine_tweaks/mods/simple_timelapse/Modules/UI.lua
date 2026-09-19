@@ -160,13 +160,14 @@ end
 local function DrawSummary(mod, Core)
     local s = mod.settings
 
-    local speed = string.format("%.1fx", s.speed)
+    local speed = string.format("%.1fx", Core.RunSpeed(mod))
+    if Core.IsAuto(mod) then speed = "auto " .. speed end
     local mode = s.mode == 0 and "Simulation" or "Clock only"
     local length = s.duration > 0 and Core.FormatDuration(s.duration) or "until stopped"
     ImGui.Text(mode .. " " .. speed)
     ImGui.SameLine(); wu.Controls.TextMuted("for"); ImGui.SameLine()
     ImGui.Text(length)
-    if s.useStartTime then
+    if s.useStartTime or Core.IsAuto(mod) then
         ImGui.SameLine(); wu.Controls.TextMuted("from"); ImGui.SameLine()
         ImGui.Text(Core.FormatSecondsToTime(Core.GetStartSeconds(mod)))
     end
@@ -211,7 +212,7 @@ local UNIT_SECONDS = { 1, 60, 3600 }
 local UNIT_WORD = { "second", "minute", "hour" }
 local UNIT_LABEL = { "Seconds", "Minutes", "Hours" }
 local DURATION_MAX = { 60, 60, 12 }
-local CLOCK_MAX = { 60, 60, 2 }
+local CLOCK_MAX = { 60, 60, 3 }
 
 --- Seconds / Minutes / Hours as one button each, the current unit highlighted.
 --- The id scope matters: two rows carrying the same labels share one ImGui id, and
@@ -228,6 +229,50 @@ local function UnitRow(id, unit, maxima, onPick)
         }
     end
     wu.Controls.ButtonRow(defs, { normalSpacing = true })
+    ImGui.PopID()
+end
+
+--- Hour, minute and AM / PM for a time of day in seconds since midnight. `id` scopes the
+--- ImGui ids, so two of these can share a section.
+local function TimeOfDayInput(id, icon, seconds, onWrite)
+    local hour24 = math.floor(seconds / 3600)
+    local minute = math.floor((seconds % 3600) / 60)
+    local isPm = hour24 >= 12
+    local hour12 = hour24 % 12
+    if hour12 == 0 then hour12 = 12 end
+
+    local function Write(newHour12, newMinute, newIsPm)
+        local h = newHour12 % 12
+        if newIsPm then h = h + 12 end
+        onWrite((h * 3600) + (newMinute * 60))
+    end
+
+    ImGui.PushID(id)
+    local frameH = ImGui.GetFrameHeight()
+    local newHour, hourChanged = wu.Controls.InputInt(icon, "Hour", hour12, {
+        step = 0,
+        cols = 2,
+        tooltip = "Hour, 1 to 12.",
+    })
+    if hourChanged then Write(math.max(1, math.min(newHour, 12)), minute, isPm) end
+    ImGui.SameLine()
+    ImGui.Text(":")
+    ImGui.SameLine()
+    local newMinute, minuteChanged = wu.Controls.InputInt(nil, "Minute", minute, {
+        step = 0,
+        cols = 2,
+        tooltip = "Minute, 0 to 59.",
+    })
+    if minuteChanged then Write(hour12, math.max(0, math.min(newMinute, 59)), isPm) end
+
+    ImGui.SameLine()
+    if wu.Controls.Button("AM", (not isPm) and "active" or "inactive", frameH * 2, 0) then
+        Write(hour12, minute, false)
+    end
+    ImGui.SameLine()
+    if wu.Controls.Button("PM", isPm and "active" or "inactive", frameH * 2, 0) then
+        Write(hour12, minute, true)
+    end
     ImGui.PopID()
 end
 
@@ -275,6 +320,24 @@ local function DrawShotSection(mod, Core, c)
         end
         wu.Controls.ButtonRow(speedRow, { normalSpacing = true })
     else
+        c:Checkbox(IconGlyphs.AutoFix .. " Auto Speed", "clockAuto",
+            { tooltip = "Works the speed out from the start time, the end time and the run's length.\nSet the end time under Start Time." })
+    end
+    if Core.IsAuto(mod) then
+        local speed = Core.AutoSpeed(mod)
+        local span = Core.AutoSpanSeconds(mod)
+        if not speed then
+            wu.Controls.TextDanger("Auto speed needs a set duration.")
+        else
+            ImGui.Text(string.format("%s in %s", Core.FormatDuration(span), Core.FormatDuration(mod.settings.duration)))
+            ImGui.SameLine()
+            wu.Controls.TextMuted(string.format("%.0fx, %s per real second", speed, Core.FormatDuration(speed)))
+            if speed > Core.GetMaxSpeed(mod) then
+                wu.Controls.TextDanger(string.format("That needs %.0fx and the limit is %.0fx. Lengthen the run.",
+                    speed, Core.GetMaxSpeed(mod)))
+            end
+        end
+    elseif mod.settings.mode == 1 then
         -- Clock speed reads as a length of game time per real second, because a bare
         -- multiplier over four orders of magnitude is unusable on a slider.
         local unit = mod.ui.clockUnit
@@ -336,52 +399,13 @@ local function DrawShotSection(mod, Core, c)
             TYPE_HINT,
     })
 
-    wu.Controls.SectionHeader("Start Time", 6, 4, nil, nil, { separatorAfter = true })
-    local startSecs = mod.settings.startSeconds
-    local hour24 = math.floor(startSecs / 3600)
-    local minute = math.floor((startSecs % 3600) / 60)
-    local isPm = hour24 >= 12
-    local hour12 = hour24 % 12
-    if hour12 == 0 then hour12 = 12 end
-
-    local function WriteStart(newHour12, newMinute, newIsPm)
-        local h = newHour12 % 12
-        if newIsPm then h = h + 12 end
-        mod.settings.startSeconds = (h * 3600) + (newMinute * 60)
+    local auto = Core.IsAuto(mod)
+    wu.Controls.SectionHeader(auto and "Start and End Time" or "Start Time", 6, 4, nil, nil, { separatorAfter = true })
+    ImGui.BeginDisabled(runLocked)
+    TimeOfDayInput("Start", IconGlyphs.CalendarClock, mod.settings.startSeconds, function(seconds)
+        mod.settings.startSeconds = seconds
         Settings.Save(mod)
-    end
-
-    local frameH = ImGui.GetFrameHeight()
-    local newHour, hourChanged = wu.Controls.InputInt(IconGlyphs.CalendarClock, "StartHour", hour12, {
-        step = 0,
-        cols = 2,
-        tooltip = "Hour, 1 to 12.",
-    })
-    if hourChanged then
-        newHour = math.max(1, math.min(newHour, 12))
-        WriteStart(newHour, minute, isPm)
-    end
-    ImGui.SameLine()
-    ImGui.Text(":")
-    ImGui.SameLine()
-    local newMinute, minuteChanged = wu.Controls.InputInt(nil, "StartMinute", minute, {
-        step = 0,
-        cols = 2,
-        tooltip = "Minute, 0 to 59.",
-    })
-    if minuteChanged then
-        newMinute = math.max(0, math.min(newMinute, 59))
-        WriteStart(hour12, newMinute, isPm)
-    end
-
-    ImGui.SameLine()
-    if wu.Controls.Button("AM", (not isPm) and "active" or "inactive", frameH * 2, 0) then
-        WriteStart(hour12, minute, false)
-    end
-    ImGui.SameLine()
-    if wu.Controls.Button("PM", isPm and "active" or "inactive", frameH * 2, 0) then
-        WriteStart(hour12, minute, true)
-    end
+    end)
 
     local function TimePreset(label, presetHour)
         return {
@@ -397,12 +421,34 @@ local function DrawShotSection(mod, Core, c)
         TimePreset("6 AM", 6), TimePreset("12 PM", 12), TimePreset("6 PM", 18), TimePreset("12 AM", 0),
     }, { normalSpacing = true })
 
-    c:Checkbox(IconGlyphs.History .. " Set Time on Start", "useStartTime",
-        { tooltip = "When the time-lapse starts, set the game time to the time above." })
-    if mod.settings.useStartTime then
-        ImGui.SameLine()
+    if auto then
+        TimeOfDayInput("End", IconGlyphs.CalendarCheck, mod.settings.endSeconds, function(seconds)
+            mod.settings.endSeconds = seconds
+            Settings.Save(mod)
+        end)
+        wu.Tooltips.Show("The game time the run ends on.")
+        c:Checkbox(IconGlyphs.CalendarRange .. " Across Days", "autoAcrossDays",
+            { tooltip = "Ends that many days after the start day.\nOff, the run ends at the next time the clock reads the end time." })
+        if mod.settings.autoAcrossDays then
+            c:SliderInt(IconGlyphs.CalendarRange, "autoDays", 1, 30, {
+                format = mod.settings.autoDays == 1 and "%d day later" or "%d days later",
+                tooltip = "How many days after the start day the run ends." .. TYPE_HINT,
+            })
+        end
+    end
+    ImGui.EndDisabled()
+
+    if not auto then
+        c:Checkbox(IconGlyphs.History .. " Set Time on Start", "useStartTime",
+            { tooltip = "When the time-lapse starts, set the game time to the time above." })
+    end
+    if mod.settings.useStartTime or auto then
+        if not auto then ImGui.SameLine() end
         c:Checkbox(IconGlyphs.Restore .. " Restore on Stop", "restoreTime",
             { tooltip = "When the time-lapse stops, put the game time back to what it was before Start." })
+    end
+    if auto then
+        wu.Controls.TextMuted("Auto speed always sets the start time when the run starts.")
     end
 
     if wu.Controls.FullWidthButton(IconGlyphs.DebugStepOver .. " Set Time Now") then

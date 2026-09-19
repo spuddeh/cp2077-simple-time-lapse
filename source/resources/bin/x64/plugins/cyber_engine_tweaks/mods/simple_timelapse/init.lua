@@ -98,7 +98,14 @@ local mod = {
         forceVehicleDilation = false, -- Experimental
         frenzySpeedMult = 1.5,
         -- Seconds since midnight. 6 AM.
-        startSeconds = 21600.0
+        startSeconds = 21600.0,
+
+        -- Auto speed: Clock mode works its speed out from the start and end times and the
+        -- run's length.
+        clockAuto = false,
+        endSeconds = 64800.0,
+        autoAcrossDays = false,
+        autoDays = 1,
     }
 }
 

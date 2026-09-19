@@ -98,10 +98,13 @@ function Core.FormatSecondsToTime(totalSeconds)
 end
 
 function Core.FormatDuration(seconds)
-    local h = math.floor(seconds / 3600)
+    local d = math.floor(seconds / 86400)
+    local h = math.floor((seconds % 86400) / 3600)
     local m = math.floor((seconds % 3600) / 60)
     local s = math.floor(seconds % 60)
-    if h > 0 then
+    if d > 0 then
+        return string.format("%dd %dh %dm", d, h, m)
+    elseif h > 0 then
         return string.format("%dh %dm %ds", h, m, s)
     elseif m > 0 then
         return string.format("%dm %ds", m, s)
@@ -112,7 +115,7 @@ end
 
 function Core.GetEstimatedData(mod)
     local startSecs = 0
-    if mod.settings.useStartTime then
+    if mod.settings.useStartTime or Core.IsAuto(mod) then
         startSecs = Core.GetStartSeconds(mod)
     else
         local ts = Game.GetTimeSystem(); if ts then
@@ -138,7 +141,7 @@ function Core.GetEstimatedData(mod)
         -- Mode 1: Clock Only
         -- Speed = Game Seconds added per Real Second
         -- (Ignoring natural 8x passage as negligible/redundant for "Timelapse" intent)
-        addedGameSeconds = mod.settings.duration * mod.settings.speed
+        addedGameSeconds = mod.settings.duration * Core.RunSpeed(mod)
     end
 
     return {
@@ -165,10 +168,41 @@ end
 -- The engine runs the simulation at no more than 10x, whatever SetTimeDilation is given.
 local ENGINE_MAX_DILATION = 10.0
 
---- Highest speed the current mode allows: Clock 10000x, Simulation the engine's 10x.
+-- Clock mode's ceiling: three game hours per real second.
+local CLOCK_MAX_SPEED = 10800.0
+
+--- Highest speed the current mode allows: Clock 10800x, Simulation the engine's 10x.
 function Core.GetMaxSpeed(mod)
-    if mod.settings.mode == 1 then return 10000.0 end
+    if mod.settings.mode == 1 then return CLOCK_MAX_SPEED end
     return ENGINE_MAX_DILATION
+end
+
+--- True when Clock mode works its speed out from the start and end times.
+function Core.IsAuto(mod)
+    return mod.settings.mode == 1 and mod.settings.clockAuto
+end
+
+--- Game seconds from the start time to the end time. The same time with no days
+--- between them is a whole day.
+function Core.AutoSpanSeconds(mod)
+    local s = mod.settings
+    local span = (s.endSeconds - s.startSeconds) % 86400
+    if s.autoAcrossDays then span = span + s.autoDays * 86400 end
+    if span <= 0 then span = 86400 end
+    return span
+end
+
+--- The Clock speed auto mode needs to cover its span in the run's length, or nil with no
+--- set length.
+function Core.AutoSpeed(mod)
+    if mod.settings.duration <= 0 then return nil end
+    return Core.AutoSpanSeconds(mod) / mod.settings.duration
+end
+
+--- The speed a run started now would use.
+function Core.RunSpeed(mod)
+    if Core.IsAuto(mod) then return Core.AutoSpeed(mod) or 0 end
+    return mod.settings.speed
 end
 
 --- The dilation a Simulation run actually gets.
@@ -241,12 +275,29 @@ local function RefusedInCombat(mod)
     return true
 end
 
+--- Auto speed needs a set length, and a speed the Clock ceiling allows.
+local function RefusedAuto(mod)
+    if not Core.IsAuto(mod) then return false end
+    local speed = Core.AutoSpeed(mod)
+    if not speed then
+        Core.NotifyWarning(mod, "Auto speed needs a set duration")
+        Log.Info("Start refused: auto speed with no duration")
+        return true
+    end
+    if speed > CLOCK_MAX_SPEED then
+        Core.NotifyWarning(mod, "Auto speed is over the limit, lengthen the run")
+        Log.Info("Start refused: auto speed %.0fx is over %.0fx", speed, CLOCK_MAX_SPEED)
+        return true
+    end
+    return false
+end
+
 local ApplyStart
 
 --- Starts the run. A start that throws partway runs the undo list, so nothing it changed is left behind.
 function Core.ExecuteStart(mod, HudUtils)
     mod.isDelaying = false
-    if RefusedInCombat(mod) then return end
+    if RefusedInCombat(mod) or RefusedAuto(mod) then return end
 
     local ok, err = pcall(ApplyStart, mod, HudUtils)
     if not ok then
@@ -263,12 +314,14 @@ ApplyStart = function(mod, HudUtils)
     -- The run reads these, never mod.settings, so the controls cannot change a run in progress.
     mod.run = {
         mode = mod.settings.mode,
-        speed = mod.settings.speed,
+        speed = Core.RunSpeed(mod),
         dilation = Core.EffectiveDilation(mod),
         frenzySpeedMult = mod.settings.frenzySpeedMult,
     }
+    -- An auto run stops the clock on its end time rather than a frame past it.
+    if Core.IsAuto(mod) then mod.run.span = Core.AutoSpanSeconds(mod) end
 
-    if mod.settings.useStartTime then
+    if mod.settings.useStartTime or Core.IsAuto(mod) then
         local timeBefore = Core.GetTotalGameSeconds()
         Core.SetTimeNow(mod)
         if mod.settings.restoreTime then
@@ -443,7 +496,7 @@ function Core.Start(mod, HudUtils)
         mod.finishMarkerTimer = nil
     end
 
-    if RefusedInCombat(mod) then return end
+    if RefusedInCombat(mod) or RefusedAuto(mod) then return end
 
     if mod.settings.startDelay > 0 then
         mod.delayTimer = mod.settings.startDelay
@@ -507,6 +560,7 @@ function Core.Update(mod, delta, HudUtils)
             -- This avoids "read-back lag" from GetGameTime() and ensures 100% efficiency.
             local step = runStep * mod.run.speed
             mod.totalGameTimeAdded = mod.totalGameTimeAdded + step
+            if mod.run.span then mod.totalGameTimeAdded = math.min(mod.totalGameTimeAdded, mod.run.span) end
 
             local ts = Game.GetTimeSystem()
             if ts then

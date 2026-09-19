@@ -16,7 +16,6 @@ local Settings = require("Modules/Settings")
 local AudioUtils = require("Modules/AudioUtils")
 local Notifications = require("Modules/Notifications")
 local Presets = require("Modules/Presets")
-local HudProbe = require("Modules/HudProbe")
 
 local UI = {}
 
@@ -460,6 +459,9 @@ local function DrawPlayerSection(mod, HudUtils, c)
         { tooltip = "Turns off additive camera motion during the run, for a steady shot." })
 
     wu.Controls.SectionHeader("HUD", 6, 4, nil, nil, { separatorAfter = true })
+    if not HudUtils.IsAvailable() then
+        wu.Controls.TextDanger("Hiding the HUD requires Codeware.")
+    end
     c:Checkbox(IconGlyphs.EyeOff .. " Auto-Hide HUD", "autoHideHud",
         { tooltip = "Hides the HUD and notifications while the run goes, and shows them again on Stop.\nThe Toggle HUD hotkey and the button below work at any time." })
     c:Checkbox(IconGlyphs.ShieldOutline .. " Block Start in Combat", "blockInCombat",
@@ -496,13 +498,6 @@ local function DrawDebugSection(mod, Core, HudUtils, CameraUtils)
             label = IconGlyphs.Camera .. " Force Head Bob",
             tooltip = "Puts additive camera motion back to full.",
             onClick = function() CameraUtils.ForceRestore(mod) end,
-        },
-    }, { normalSpacing = true })
-    wu.Controls.ButtonRow({
-        {
-            label = IconGlyphs.FileSearchOutline .. " Log HUD State",
-            tooltip = "Writes the UI context stack and every HUD setting to the log. Debug level only.",
-            onClick = function() HudProbe.Dump(mod, "manual") end,
         },
     }, { normalSpacing = true })
     wu.Controls.ButtonRow({

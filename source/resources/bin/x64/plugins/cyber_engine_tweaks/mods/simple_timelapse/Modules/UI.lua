@@ -402,31 +402,37 @@ local function DrawShotSection(mod, Core, c)
     local auto = Core.IsAuto(mod)
     wu.Controls.SectionHeader(auto and "Start and End Time" or "Start Time", 6, 4, nil, nil, { separatorAfter = true })
     ImGui.BeginDisabled(runLocked)
-    TimeOfDayInput("Start", IconGlyphs.CalendarClock, mod.settings.startSeconds, function(seconds)
-        mod.settings.startSeconds = seconds
-        Settings.Save(mod)
-    end)
 
-    local function TimePreset(label, presetHour)
-        return {
-            label = label,
-            style = (mod.settings.startSeconds == presetHour * 3600) and "active" or "inactive",
-            onClick = function()
-                mod.settings.startSeconds = presetHour * 3600
-                Settings.Save(mod)
-            end,
-        }
-    end
-    wu.Controls.ButtonRow({
-        TimePreset("6 AM", 6), TimePreset("12 PM", 12), TimePreset("6 PM", 18), TimePreset("12 AM", 0),
-    }, { normalSpacing = true })
-
-    if auto then
-        TimeOfDayInput("End", IconGlyphs.CalendarCheck, mod.settings.endSeconds, function(seconds)
-            mod.settings.endSeconds = seconds
+    --- A labelled time input with the four quick times under it, writing `key`.
+    local function TimeBlock(id, label, icon, key)
+        wu.Controls.TextMuted(label)
+        TimeOfDayInput(id, icon, mod.settings[key], function(seconds)
+            mod.settings[key] = seconds
             Settings.Save(mod)
         end)
-        wu.Tooltips.Show("The game time the run ends on.")
+
+        local function Quick(text, hour)
+            return {
+                label = text,
+                style = (mod.settings[key] == hour * 3600) and "active" or "inactive",
+                tooltip = string.format("Set the %s to %s.", string.lower(label), Core.FormatSecondsToTime(hour * 3600)),
+                onClick = function()
+                    mod.settings[key] = hour * 3600
+                    Settings.Save(mod)
+                end,
+            }
+        end
+        ImGui.PushID(id .. "Quick")
+        wu.Controls.ButtonRow({
+            Quick("Dawn 6 AM", 6), Quick("Noon 12 PM", 12), Quick("Dusk 6 PM", 18), Quick("Midnight 12 AM", 0),
+        }, { normalSpacing = true })
+        ImGui.PopID()
+    end
+
+    TimeBlock("Start", "Start time", IconGlyphs.CalendarClock, "startSeconds")
+
+    if auto then
+        TimeBlock("End", "End time", IconGlyphs.CalendarCheck, "endSeconds")
         c:Checkbox(IconGlyphs.CalendarRange .. " Across Days", "autoAcrossDays",
             { tooltip = "Ends that many days after the start day.\nOff, the run ends at the next time the clock reads the end time." })
         if mod.settings.autoAcrossDays then

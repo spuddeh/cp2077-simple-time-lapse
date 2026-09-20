@@ -1,6 +1,6 @@
 -- ======================================================================================
 -- Simple Time-lapse - Init Module
--- Mod Version:  v1.3.0
+-- Mod Version:  v2.0.0
 -- Author:       Spuddeh
 --
 -- DESCRIPTION:
@@ -19,7 +19,7 @@ local Notifications = require("Modules/Notifications")
 local Presets = require("Modules/Presets")
 
 local mod = {
-    version = "v1.3.0",
+    version = "v2.0.0",
     isOverlayOpen = false,
     isActive = false,
 

@@ -1,6 +1,6 @@
 -- ======================================================================================
 -- Simple Time-lapse - UI Module
--- Mod Version:  v1.3.0
+-- Mod Version:  v2.0.0
 -- Author:       Spuddeh
 --
 -- DESCRIPTION:

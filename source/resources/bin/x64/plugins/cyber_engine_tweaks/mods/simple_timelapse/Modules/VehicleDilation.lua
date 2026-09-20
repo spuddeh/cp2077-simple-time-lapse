@@ -6,7 +6,7 @@
 --              limitation). This module scans for nearby vehicles and injects
 --              AIVehicleDriveToPointAutonomousCommand with scaled speeds, plus
 --              crowd spawning overrides to counteract traffic thinning.
--- Mod Version: 1.3.0
+-- Mod Version: 2.0.0
 -- ======================================================================================
 
 local Log = require("Modules/Log")

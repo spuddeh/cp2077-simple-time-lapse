@@ -47,7 +47,7 @@ REGISTER_FLIGHT_HOOK_HASH(short, 593628708, Recalculate, RED4ext::vehicle::Physi
 3. **Reverse Engineering (The Hard Part):**
    - You need a tool like **Ghidra** or **IDA Pro** (with the Cyberpunk 2077 PDB debug symbols loaded).
    - You must search the compiled executable for the functions related to `TimeSystem` or `vehicle::PhysicsData`, reverse engineer their assembly instructions, and find their memory offsets.
-   - *Note:* These offsets change every time the game updates (e.g., from Patch 2.1 to 2.12), which is why DLL mods break so frequently.
+   - *Note:* These offsets change every time the game updates (e.g., from Patch 2.1 to 2.12), so a DLL mod built on them breaks on every patch.
 
 4. **Writing the Hook:**
    - Once you have the offset, you write a RED4ext hook (like the example above) to intercept the time-dilation application for vehicles.

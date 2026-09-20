@@ -1,6 +1,6 @@
 -- ======================================================================================
 -- Simple Time-lapse - Log Module
--- Mod Version: 1.3.0
+-- Mod Version: 2.0.0
 -- Author:       Spuddeh
 --
 -- DESCRIPTION:

@@ -8,9 +8,12 @@
 -- a weather sequence across the run, cinematic bars and fades. Every one is skipped
 -- when XUtils is not installed, and every change records its own undo.
 --
--- Depth of field exists only inside an XUtils camera session. The session starts at
--- the player's view with playerMode "none", which applies none of XUtils' own locks,
--- and its free-fly input is paused so the camera holds still for the run.
+-- Depth of field exists only inside an XUtils camera session, and that camera is
+-- detached from the player rather than following V. The session starts at the player's
+-- view, and the camera mode decides what happens next: Locked off pauses the free-fly
+-- input so the frame holds still, and leaves the locks to this mod's own settings.
+-- Free fly gives the input to XUtils, which then owns the restrictions, and teleports
+-- V under the camera each frame so the world keeps streaming around the shot.
 --
 -- The bars and the fade sit on the HUD layer's window beside its Root canvas, so the
 -- HUD hide leaves them on screen.
@@ -30,6 +33,7 @@ XUtilsFx.FOCUS_CURVES = { "Sine", "Quadratic", "Cubic", "Smoothstep", "Circular"
 XUtilsFx.BAR_RATIOS = { 2.39, 2.00, 1.85 }
 XUtilsFx.BAR_LABELS = { "2.39:1", "2.00:1", "1.85:1" }
 XUtilsFx.WEATHER_MODES = { "Even split", "Percent per state", "Game hours per state" }
+XUtilsFx.CAMERA_MODES = { "Locked off", "Free fly" }
 
 -- Named lenses. Each sets the look sliders; focus behaviour is left as the player set it.
 XUtilsFx.LENS_PRESETS = {
@@ -57,6 +61,12 @@ end
 function XUtilsFx.IsAvailable()
     local x = XUtils()
     return x ~= nil and x.Subscribe ~= nil
+end
+
+--- True when the run will fly the camera rather than park it. The player's own
+--- movement and camera locks do nothing in that case: XUtils owns the input.
+function XUtilsFx.IsFreeFly(s)
+    return XUtilsFx.IsAvailable() and s.xuLens and s.xuCameraMode == 1
 end
 
 local function Handle()
@@ -160,8 +170,15 @@ local function StartLens(mod)
         return
     end
 
-    local started = h:StartCamera({
-        playerMode = "none",
+    local freeFly = s.xuCameraMode == 1
+
+    local config = {
+        -- V is hidden either way: the camera renders from outside the body, and the
+        -- first-person mesh has no head.
+        -- Locked off applies none of XUtils' own locks, so this mod's Hold the shot
+        -- settings still decide what the player may do. Free fly hands input to XUtils,
+        -- so XUtils also takes the restrictions.
+        playerMode = freeFly and { invisible = true, restrictions = true } or { invisible = true },
         showHints = false,
         showOverlay = false,
         showMinimap = false,
@@ -178,15 +195,29 @@ local function StartLens(mod)
             afTransitionDuration = s.xuFocusSpeed,
             afCurve = XUtilsFx.FOCUS_CURVES[s.xuFocusCurve + 1] or "Sine",
         },
-    })
+    }
+
+    if freeFly then
+        -- V rides under the camera, so the world keeps streaming around the shot.
+        config.teleportPlayer = true
+        config.teleportContinuous = true
+        config.freeFly = {
+            baseSpeed = s.xuFlySpeed,
+            movementMode = s.xuFlyLevel and "global" or "relative",
+        }
+    end
+
+    local started = h:StartCamera(config)
     if started ~= true then
         Log.Warn("The XUtils camera did not start (%s), the lens is skipped. Another mod may own it",
             tostring(started))
         return
     end
 
-    local sys = CameraSystem()
-    if sys then sys:SetInputPaused(true) end
+    if not freeFly then
+        local sys = CameraSystem()
+        if sys then sys:SetInputPaused(true) end
+    end
 
     Undo.Push("lens", function()
         local cameraSystem = CameraSystem()

@@ -351,7 +351,11 @@ ApplyStart = function(mod, HudUtils)
         CameraUtils.Disable()
     end
 
-    CameraUtils.LockPlayer(mod)
+    -- A free-fly lens run gets its restrictions from XUtils with the camera session, so
+    -- the same effects are not applied twice from here.
+    if not XUtilsFx.IsFreeFly(mod.settings) then
+        CameraUtils.LockPlayer(mod)
+    end
 
     AudioUtils.Mute(mod)
     Notifications.Silence(mod)

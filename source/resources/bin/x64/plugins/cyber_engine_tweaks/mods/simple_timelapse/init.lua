@@ -73,6 +73,9 @@ local mod = {
 
         -- XUtils features, skipped when XUtils is not installed.
         xuLens = false,
+        xuCameraMode = 0,
+        xuFlySpeed = 3.0,
+        xuFlyLevel = true,
         xuDofMode = 2,
         xuFocalLength = 35.0,
         xuFstop = 8.0,

@@ -182,15 +182,23 @@ local function DrawSummary(mod, Core)
     if s.muteSfx then Chip(IconGlyphs.VolumeOff, "Sound effects muted") end
     if s.muteNotifications then Chip(IconGlyphs.BellOff, "Notifications silenced, call ringtone cut") end
     if s.autoHideHud then Chip(IconGlyphs.EyeOff, "HUD hidden for the run") end
-    if s.lockMovement then Chip(IconGlyphs.Walk, "Movement locked") end
-    if s.lockWeapons then Chip(IconGlyphs.Pistol, "Weapons locked") end
-    if s.lockCamera then Chip(IconGlyphs.Eye, "Camera locked") end
+    local freeFly = XUtilsFx.IsFreeFly(s)
+    if not freeFly then
+        if s.lockMovement then Chip(IconGlyphs.Walk, "Movement locked") end
+        if s.lockWeapons then Chip(IconGlyphs.Pistol, "Weapons locked") end
+        if s.lockCamera then Chip(IconGlyphs.Eye, "Camera locked") end
+    end
     if s.disableHeadBob then Chip(IconGlyphs.CameraOutline, "Head bob off") end
     if s.useStartTime and s.restoreTime then Chip(IconGlyphs.Restore, "Game time put back on Stop") end
     if s.startDelay > 0 then Chip(IconGlyphs.TimerOutline, string.format("%.1fs countdown", s.startDelay)) end
     if XUtilsFx.IsAvailable() then
         if s.xuLens then
             Chip(IconGlyphs.CameraIris, string.format("Depth of field, %.0f mm at f/%.1f", s.xuFocalLength, s.xuFstop))
+            if freeFly then
+                Chip(IconGlyphs.Pan, string.format("Free fly at %.1f m/s", s.xuFlySpeed))
+            else
+                Chip(IconGlyphs.Pan, "Camera locked off")
+            end
         end
         if s.xuWeather and #s.xuWeatherList > 0 then
             Chip(IconGlyphs.WeatherCloudy, string.format("Weather sequence, %d state%s", #s.xuWeatherList,
@@ -510,12 +518,22 @@ end
 
 local function DrawPlayerSection(mod, HudUtils, c)
     wu.Controls.SectionHeader("Hold the shot", nil, 4, nil, nil, { separatorAfter = true })
+
+    -- A free-fly lens run hands input to XUtils, which applies its own block. These three
+    -- settle nothing then, so they are shown as they are saved and cannot be changed.
+    local freeFly = XUtilsFx.IsFreeFly(mod.settings)
+    if freeFly then
+        wu.Controls.TextMuted("A free fly lens run leaves these to XUtils.")
+        ImGui.BeginDisabled(true)
+    end
     c:Checkbox(IconGlyphs.Walk .. " Lock Movement", "lockMovement",
         { tooltip = "Stops V moving during the run, so the frame cannot drift." })
     c:Checkbox(IconGlyphs.Pistol .. " Lock Weapons", "lockWeapons",
         { tooltip = "Stops V drawing or firing a weapon during the run.\nIt also empties V's hands, which silences the Radioport." })
     c:Checkbox(IconGlyphs.Eye .. " Lock Camera", "lockCamera",
         { tooltip = "Stops the camera turning during the run, for a static frame." })
+    if freeFly then ImGui.EndDisabled() end
+
     c:Checkbox(IconGlyphs.CameraOutline .. " No Head Bob", "disableHeadBob",
         { tooltip = "Turns off additive camera motion during the run, for a steady shot." })
 
@@ -538,8 +556,20 @@ end
 local function DrawLensPanel(mod, c)
     local s = mod.settings
     c:Checkbox(IconGlyphs.CameraIris .. " Depth of Field", "xuLens",
-        { tooltip = "Shoots the run through an XUtils camera with a real lens, so what is out of focus blurs.\nThe camera holds still at V's view for the whole run, whatever the camera lock says." })
+        { tooltip = "Shoots the run through an XUtils camera with a real lens, so what is out of focus blurs.\nThe camera starts at V's view, and V is hidden for the run." })
     if not s.xuLens then return end
+
+    c:Combo(IconGlyphs.Pan, "xuCameraMode", XUtilsFx.CAMERA_MODES, {
+        tooltip = "Locked off: the camera holds still where the run started.\nFree fly: WASD, Space and C move the camera, and V rides along under it.",
+    })
+    if s.xuCameraMode == 1 then
+        c:SliderFloat(IconGlyphs.Speedometer, "xuFlySpeed", 0.5, 50.0, {
+            format = "%.1f m/s",
+            tooltip = "How fast the camera flies. Walking pace is about 3." .. TYPE_HINT,
+        })
+        c:Checkbox(IconGlyphs.PanHorizontal .. " Stay Level", "xuFlyLevel",
+            { tooltip = "Keeps forward flat along the ground, so looking down does not fly you into it.\nUntick to fly where the camera points." })
+    end
 
     local matching = XUtilsFx.MatchingPreset(s)
     local presetRow = {}
@@ -621,9 +651,10 @@ local function DrawWeatherPanel(mod, c)
     for i, state in ipairs(states) do labels[i] = state.label end
 
     local list = s.xuWeatherList
-    local action = nil
-    for i, entry in ipairs(list) do
-        ImGui.PushID("WeatherEntry" .. i)
+    local removeIndex = nil
+
+    -- The grip is the only drag source, so the row's own controls still take their clicks.
+    wu.DragDrop.list("stl_weather_list", list, function(entry, i)
         local current = 0
         for j, state in ipairs(states) do
             if state.id == entry.state then current = j - 1 end
@@ -661,36 +692,16 @@ local function DrawWeatherPanel(mod, c)
         ImGui.SameLine()
         wu.Controls.ButtonRow({
             {
-                icon = IconGlyphs.ChevronUp,
-                tooltip = "Move up",
-                disabled = (i == 1) and "hard" or nil,
-                onClick = function() action = { kind = "up", index = i } end,
-            },
-            {
-                icon = IconGlyphs.ChevronDown,
-                tooltip = "Move down",
-                disabled = (i == #list) and "hard" or nil,
-                onClick = function() action = { kind = "down", index = i } end,
-            },
-            {
                 icon = IconGlyphs.Delete,
                 style = "danger",
                 tooltip = "Remove",
-                onClick = function() action = { kind = "remove", index = i } end,
+                onClick = function() removeIndex = i end,
             },
         })
-        ImGui.PopID()
-    end
+    end, function() Settings.Save(mod) end, { showHandle = true })
 
-    if action then
-        local i = action.index
-        if action.kind == "up" then
-            list[i], list[i - 1] = list[i - 1], list[i]
-        elseif action.kind == "down" then
-            list[i], list[i + 1] = list[i + 1], list[i]
-        else
-            table.remove(list, i)
-        end
+    if removeIndex then
+        table.remove(list, removeIndex)
         Settings.Save(mod)
     end
 

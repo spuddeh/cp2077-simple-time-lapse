@@ -125,15 +125,19 @@ end
 --- The session's camera entity. XUtils keeps its Camera module to itself - only
 --- CameraController, CameraShake and CameraLens are on the mod table - so the transform
 --- is reached through the scriptable system instead.
+---
+--- Ready, not spawned: Spawn sets the spawned flag on the call that requests the entity,
+--- and the entity resolves some frames later. Until it does, the camera reports a position
+--- of 0, 0, 0, which reads as a real answer rather than a missing one.
 local function RedCamera()
     local sys = CameraSystem()
     if not sys then return nil end
     local cam = sys:GetCamera()
-    if not cam or not cam:IsSpawned() then return nil end
+    if not cam or not cam:IsSpawned() or not cam:IsReady() then return nil end
     return cam
 end
 
---- The camera's place, as position and rotation tables. Nil until the entity spawns.
+--- The camera's place, as position and rotation tables. Nil until the entity is there.
 local function ReadTransform()
     local cam = RedCamera()
     if not cam then return nil end
@@ -142,10 +146,24 @@ local function ReadTransform()
     local parts = {}
     for part in string.gmatch(str, "[^;]+") do parts[#parts + 1] = tonumber(part) end
     if #parts < 6 then return nil end
+    -- The origin is what an unresolved entity reports, and no shot is taken from it.
+    if parts[1] == 0 and parts[2] == 0 and parts[3] == 0 then return nil end
     return {
         position = { x = parts[1], y = parts[2], z = parts[3] },
         rotation = { yaw = parts[4], pitch = parts[5], roll = parts[6] },
     }
+end
+
+-- How far a shake may carry the camera from where the shot is parked, in metres.
+local SHAKE_REACH = 3.0
+
+--- False for a point further than a shake can honestly reach, and for one that is not a
+--- number at all, which is how a divide by zero arrives from the other side.
+local function Near(point, base)
+    local dx, dy, dz = point.x - base.x, point.y - base.y, point.z - base.z
+    local distanceSq = dx * dx + dy * dy + dz * dz
+    if distanceSq ~= distanceSq then return false end
+    return distanceSq <= SHAKE_REACH * SHAKE_REACH
 end
 
 local function WriteTransform(position, rotation)
@@ -498,7 +516,14 @@ function XUtilsFx.Update(mod, currentGameSeconds, delta)
             }
             if shake then
                 local position, rotation = shake:Apply(shakeBase.position, held, { delta = delta })
-                if position and rotation then WriteTransform(position, rotation) end
+                -- A shake is a displacement of a few centimetres. Anything that moves the
+                -- camera metres from where it is parked is not a shake, and holding the
+                -- frame is a better answer than following it.
+                if position and rotation and Near(position, shakeBase.position) then
+                    WriteTransform(position, rotation)
+                else
+                    WriteTransform(shakeBase.position, held)
+                end
             else
                 WriteTransform(shakeBase.position, held)
             end

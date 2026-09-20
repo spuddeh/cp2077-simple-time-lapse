@@ -1,3 +1,9 @@
+### [2026-09-20] Session - the camera parked at the origin
+- **[Simple Time-lapse] XUtilsFx.lua v2.0.0**:
+    - [Fix] `RedCamera` waits for `IsReady`, not `IsSpawned`. `XUtilsCamera.Spawn` sets the spawned flag on the call that requests the entity and leaves `m_isReady` false until the entity attaches, and `GetPosition` returns 0, 0, 0 for an unresolved entity. `GetTransformString` formats that as six valid numbers, so a base read on an early frame parsed cleanly and pinned the shot at the world origin for the run. A race, which is why it took some runs and not others.
+    - [Fix] A transform reading exactly 0, 0, 0 is refused as a base, because that is what a missing entity reports and no shot is taken from there.
+    - [New] A shake result further than three metres from the parked position, or not a number, is dropped and the parked frame written instead. A shake is centimetres; anything else is a preset the camera should not follow.
+
 ### [2026-09-20] Session - the free-fly keys
 - **[Simple Time-lapse] XUtilsFx.lua v2.0.0**:
     - [New] `RegisterFlyKeys` registers a control mode with `CameraController.registerControlMode`, naming XUtils' own six free-fly actions and pointing `scriptableSystemName` at `XUtils.XUtilsFreeFlyHotkeys`. The keys come from the player's XUtils bindings, so a rebind in Mod Settings is the key that works, and this mod adds no bindings of its own.

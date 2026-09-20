@@ -523,7 +523,7 @@ local function DrawPlayerSection(mod, HudUtils, c)
     -- settle nothing then, so they are shown as they are saved and cannot be changed.
     local freeFly = XUtilsFx.IsFreeFly(mod.settings)
     if freeFly then
-        wu.Controls.TextMuted("A free fly lens run leaves these to XUtils.")
+        wu.Controls.TextMuted("A free fly camera does not apply these.")
         ImGui.BeginDisabled(true)
     end
     c:Checkbox(IconGlyphs.Walk .. " Lock Movement", "lockMovement",
@@ -560,7 +560,7 @@ local function DrawLensPanel(mod, c)
     if not s.xuLens then return end
 
     c:Combo(IconGlyphs.Pan, "xuCameraMode", XUtilsFx.CAMERA_MODES, {
-        tooltip = "Static: the camera holds still where the run started, and the Player tab decides what V may do.\nFree fly: WASD, Space and C move the camera, and V is brought along. XUtils holds V still for this one, so the Player tab's locks are ignored.",
+        tooltip = "Static: the camera holds still where the run started. The Player tab decides what V can do.\nFree fly: WASD, Space and C move the camera. The Player tab's locks do not apply.",
     })
     if s.xuCameraMode == 1 then
         c:SliderFloat(IconGlyphs.Speedometer, "xuFlySpeed", 0.5, 50.0, {

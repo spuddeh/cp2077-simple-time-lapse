@@ -10,6 +10,22 @@
     - [New] Lock Movement, Lock Weapons and Lock Camera render inside `ImGui.BeginDisabled` on a free-fly lens run, under a line saying XUtils holds them. The run summary drops their chips and shows the camera mode instead.
     - [Refactor] The weather sequence list is `wu.DragDrop.list` with `showHandle = true`, replacing the per-row up and down buttons. The grip is the only drag source, so the row's combo, slider and remove button keep their clicks.
 
+### [2026-09-19] Session
+- **[Simple Time-lapse] HudUtils.lua v2.0.0**:
+    - [Fix] The HUD is hidden by hiding the HUD layer's virtual window through Codeware's `inkSystem`, which makes Codeware a hard dependency for HUD hiding. The UI context stack cannot do it: an `Empty` context only holds while it is on top, mounting a vehicle pushes `VehicleMounted` above it natively, a duplicate push and a pop below the top are both ignored, and a context left above `VehicleMounted` at exit stranded the car context on foot.
+    - [Fix] Only the layer's `Root` canvas is hidden, not the whole layer window. Other mods parent overlays onto the window beside `Root` - XUtils' cinematic bars, fade, guides and crosshair among them - and hiding the window took those with it.
+    - [Removed] The `/interface/hud/vehicle_hud` write, its launch repair, its saved keys and the HUD probe. The layer window covers the vehicle HUD, so none of them has anything left to do.
+- **[Simple Time-lapse] XUtilsFx.lua (new) v2.0.0**:
+    - [New] A Cinema section, drawn only when XUtils is installed: depth of field through an XUtils camera with five lens presets over the full lens settings, a weather sequence, cinematic bars and fades in and out.
+    - [New] The weather sequence splits the run evenly, by percent per state, or by game hours per state, and resets to natural weather on Stop.
+    - [New] Bars and fades draw on the HUD layer beside `Root`, so the HUD hide leaves them up. The closing fade's undo is pushed before every other change of the run, so the view returns after everything else is restored.
+- **[Simple Time-lapse] Settings.lua / Presets.lua v2.0.0**:
+    - [Fix] Settings and presets copy tables deeply. The weather list is the first table setting, and a shared reference let an edit change the defaults and the saved presets with it.
+- **[Simple Time-lapse] Core.lua / UI.lua v2.0.0**:
+    - [New] Auto Speed for Clock mode works the speed out from a start time, an end time, an optional number of days later and the run's length. The run always sets its start time, and the clock stops on the end time rather than a frame past it. Start is refused with no set duration, or when the speed needed is over the ceiling.
+    - [New] The Clock ceiling is three game hours per real second and the unit row goes to 3 hours. Auto Speed itself has no ceiling; the run's length decides it.
+    - [New] Start and end times share one hour / minute / AM-PM input, both labelled, and the quick times apply to whichever is being set.
+
 ### [2026-09-16] Session
 - **[Simple Time-lapse] Core.lua / UI.lua v1.3.0**:
     - [Fix] A run reads mode, speed, dilation and Traffic Frenzy speed from `mod.run`, saved in `ApplyStart`. Switching to Clock mid-run wrote a stale `startTotalSeconds` to the clock; a speed change miscounted `elapsedTime` and the run stats.
@@ -28,6 +44,17 @@
     - [New] `lockWeapons` applies `GameplayRestriction.NoCombat` on its own; `lockMovement` applies only `NoMovement`. `NoCombat` forces empty hands, which is what the game uses to silence the Radioport.
 - **[Simple Time-lapse] VehicleDilation.lua v1.3.0**:
     - [Refactor] Drive-command comments state the speed limits rather than the values they replaced.
+
+- **[Simple Time-lapse] UI.lua v2.0.0 - the window redesign**:
+    - [Refactor] The window is a Window Utils tab bar - Shot / Scene / Audio / Player / Debug - with the sections in a button column beside their pane, so the tab strip no longer eats width. Controls, section headers, status bars, text colours and button styles all come from the library.
+    - [New] A status line and preset row pinned at the top, a run summary under it stating mode, speed, length and start time with an icon per option the run applies, and the clock readout and START pinned at the bottom.
+    - [New] Presets carry every setting but the log level and Traffic Frenzy, saved to `presets.json`. Defaults, Sunrise, City Rush and Empty City ship with the mod; a saved preset may shadow one, and deleting it brings the shipped one back.
+    - [Fix] Controls size by the library's 12-column grid. Setting their own item width lost the preset row its buttons.
+    - [Fix] Each unit row pushes its own ImGui id. Two rows of the same labels shared one id, so the duration row's clicks landed on the speed row's buttons.
+    - [Fix] The Clock-mode unit is stored in `mod.ui` like the duration's, so running the slider to its end no longer re-reads the speed and jumps a unit.
+    - [Fix] The `BeginDisabled` for the mode buttons had no matching `EndDisabled`, which disabled every control after it, STOP included, for the length of a run.
+    - [Refactor] Duration and Clock-mode speed are a unit row plus a slider reading "10 minutes" and "1 minute per real second". Start time is an hour box, a minute box and an AM/PM toggle beside them, on a `startSeconds` setting migrated from the three combo keys. The Clock-mode type box is gone, because Ctrl+click types into any slider and the tooltips now say so.
+    - [Fix] The window opens at 720x960, the size that fits the sections without scrolling, and the panes leave room for the footer.
 
 ### [2026-02-22] Initial
 - Repository created from workspace restructure.

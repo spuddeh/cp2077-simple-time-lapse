@@ -1,3 +1,13 @@
+### [2026-09-20] Session - the Camera section, fixed against a run
+- **[Simple Time-lapse] XUtilsFx.lua v2.0.0**:
+    - [Fix] The camera transform is reached through the scriptable system's `GetCamera()`, not `XUtils.Camera`. XUtils exports only `CameraController`, `CameraShake` and `CameraLens`; its `Camera` module is internal, so the guard on it returned before anything ran. The shake pushed no undo and logged nothing, which is how a missing export looks.
+    - [Fix] `StartShake` is `StartStaticCamera`, and it takes the transform over for a roll as well as a shake. Nothing else writes a static camera, so a roll set through `FreeFlyController` had nobody to apply it.
+    - [Fix] The base transform is read on the first frame that answers rather than at start. The camera entity spawns after the session does, so a start-time read returns an empty string.
+    - [New] `ApplyFlyFeel` logs the sensitivity asked for beside the one `GetSensitivity` reports back, because the setter is relative and a silent clamp is otherwise invisible.
+- **[Simple Time-lapse] UI.lua v2.0.0**:
+    - [Fix] Depth of Field sets `xuCamera` through an `onChange`, and the Camera checkbox draws disabled while the lens is on. It read as ticked-off with its settings showing.
+    - [Fix] The roll tooltip no longer promises Q and E. Those keys reach a free-fly camera through XUtils' own consumer input modes, which this mod does not register.
+
 ### [2026-09-20] Session - the Camera section
 - **[Simple Time-lapse] XUtilsFx.lua v2.0.0**:
     - [Refactor] `StartLens` is `StartCamera`, and the lens config is attached only when `xuLens` is set. The camera session no longer implies depth of field, so a moving shot can leave the picture alone. `XUtilsFx.UsesCamera(s)` is true for either, because the lens needs the session.

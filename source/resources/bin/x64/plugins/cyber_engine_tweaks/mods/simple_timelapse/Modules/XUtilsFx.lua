@@ -122,6 +122,38 @@ local function VisualUtils()
     return x and x.visual and x.visual.VisualUtils or nil
 end
 
+--- The session's camera entity. XUtils keeps its Camera module to itself - only
+--- CameraController, CameraShake and CameraLens are on the mod table - so the transform
+--- is reached through the scriptable system instead.
+local function RedCamera()
+    local sys = CameraSystem()
+    if not sys then return nil end
+    local cam = sys:GetCamera()
+    if not cam or not cam:IsSpawned() then return nil end
+    return cam
+end
+
+--- The camera's place, as position and rotation tables. Nil until the entity spawns.
+local function ReadTransform()
+    local cam = RedCamera()
+    if not cam then return nil end
+    local str = cam:GetTransformString()
+    if not str or str == "" then return nil end
+    local parts = {}
+    for part in string.gmatch(str, "[^;]+") do parts[#parts + 1] = tonumber(part) end
+    if #parts < 6 then return nil end
+    return {
+        position = { x = parts[1], y = parts[2], z = parts[3] },
+        rotation = { yaw = parts[4], pitch = parts[5], roll = parts[6] },
+    }
+end
+
+local function WriteTransform(position, rotation)
+    local cam = RedCamera()
+    if not cam then return end
+    cam:SetTransform(position.x, position.y, position.z, rotation.yaw, rotation.pitch, rotation.roll)
+end
+
 -- =================================================================
 -- ### WEATHER STATES ###
 -- =================================================================
@@ -213,46 +245,49 @@ local function ApplyFlyFeel(mod)
 
     ff.setRoll(s.xuRoll)
     ff.setPitchUnlocked(s.xuPitchUnlocked)
+
+    Log.Debug("Fly feel: look sensitivity asked %.2f, got %s; roll %.1f; pitch unlocked %s",
+        s.xuLookSensitivity, tostring(ff.getSensitivity()), s.xuRoll, tostring(s.xuPitchUnlocked))
 end
 
---- Starts a shake over the parked camera, and records the transform it displaces.
-local function StartShake(mod)
+--- Takes over a static camera's transform for the run: the roll it is held at, and the
+--- shake laid over it. Nothing else writes that camera, because a paused free-fly input
+--- skips the update that would. The base is read on the first frame it can be, since the
+--- camera entity spawns after the session starts.
+local function StartStaticCamera(mod)
     local s = mod.settings
-    local x = XUtils()
-    if not x or not x.CameraShake or not x.Camera then return end
+    local wantShake = s.xuShake
+    local wantRoll = math.abs(s.xuRoll) > 0.001
+    if not wantShake and not wantRoll then return end
 
-    local ok, instance = pcall(x.CameraShake.new)
-    if not ok or not instance then
-        Log.Warn("The camera shake did not start (%s)", tostring(instance))
-        return
+    local instance = nil
+    if wantShake then
+        local x = XUtils()
+        local ok, built = pcall(x.CameraShake.new)
+        if not ok or not built then
+            Log.Warn("The camera shake did not start (%s)", tostring(built))
+        else
+            if s.xuShakePreset ~= "" then built:LoadPreset(s.xuShakePreset) end
+            built:Reconfigure({ intensity = s.xuShakeIntensity })
+            built:Start()
+            instance = built
+        end
     end
 
-    if s.xuShakePreset ~= "" then instance:LoadPreset(s.xuShakePreset) end
-    instance:Reconfigure({ intensity = s.xuShakeIntensity })
-
-    shakeBase = x.Camera.getTransform()
-    if not shakeBase then
-        Log.Warn("The camera transform could not be read, the shake is skipped")
-        instance:Destroy()
-        return
-    end
-
-    instance:Start()
     shake = instance
+    shakeBase = nil
+    Log.Debug("Static camera taken over: shake %s, roll %.1f",
+        instance and s.xuShakePreset or "off", s.xuRoll)
 
-    Undo.Push("shake", function()
+    Undo.Push("staticCamera", function()
         local base, current = shakeBase, shake
         shake, shakeBase = nil, nil
         if current then
             current:Stop()
             current:Destroy()
         end
-        -- The camera is put back where the shake found it, before the session stops.
-        local cam = XUtils() and XUtils().Camera
-        if cam and base then
-            cam.setTransform(base.position.x, base.position.y, base.position.z,
-                base.rotation.yaw, base.rotation.pitch, base.rotation.roll)
-        end
+        -- Put the camera back where it was found, before the session's undo stops it.
+        if base then WriteTransform(base.position, base.rotation) end
     end)
 end
 
@@ -382,7 +417,7 @@ function XUtilsFx.Start(mod)
     local s = mod.settings
     if XUtilsFx.UsesCamera(s) then
         StartCamera(mod)
-        if s.xuShake and XUtilsFx.ShakeReachesCamera(s) then StartShake(mod) end
+        if XUtilsFx.ShakeReachesCamera(s) then StartStaticCamera(mod) end
     end
     if s.xuWeather then StartWeather(mod) end
     if s.xuBars then StartBars(mod) end
@@ -396,12 +431,29 @@ end
 --- Moves the weather to the segment the run has reached, and starts the closing fade
 --- when a timed run is that close to its end.
 function XUtilsFx.Update(mod, currentGameSeconds, delta)
-    if shake and shakeBase then
-        local x = XUtils()
-        local position, rotation = shake:Apply(shakeBase.position, shakeBase.rotation, { delta = delta })
-        if x and x.Camera and position and rotation then
-            x.Camera.setTransform(position.x, position.y, position.z,
-                rotation.yaw, rotation.pitch, rotation.roll)
+    if Undo.Has("staticCamera") then
+        -- The camera entity spawns a frame or two after the session starts, so the place
+        -- it is held at is whatever the first readable frame reports.
+        if not shakeBase then
+            shakeBase = ReadTransform()
+            if shakeBase then
+                Log.Debug("Static camera base read at %.2f, %.2f, %.2f",
+                    shakeBase.position.x, shakeBase.position.y, shakeBase.position.z)
+            end
+        end
+
+        if shakeBase then
+            local held = {
+                yaw = shakeBase.rotation.yaw,
+                pitch = shakeBase.rotation.pitch,
+                roll = mod.settings.xuRoll,
+            }
+            if shake then
+                local position, rotation = shake:Apply(shakeBase.position, held, { delta = delta })
+                if position and rotation then WriteTransform(position, rotation) end
+            else
+                WriteTransform(shakeBase.position, held)
+            end
         end
     end
 

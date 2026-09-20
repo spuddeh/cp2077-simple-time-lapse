@@ -560,10 +560,14 @@ end
 
 local function DrawCameraPanel(mod, c)
     local s = mod.settings
+    -- Depth of field cannot run without the session, so the lens holds this on rather
+    -- than working around it.
+    ImGui.BeginDisabled(s.xuLens)
     c:Checkbox(IconGlyphs.CameraControl .. " Camera", "xuCamera",
         { tooltip = "Shoots the run through an XUtils camera instead of V's own view.\nThe camera starts at V's view, and V is hidden for the run." })
-    if s.xuLens and not s.xuCamera then
-        wu.Controls.TextMuted("Depth of field needs the camera, so it is on for this run.")
+    ImGui.EndDisabled()
+    if s.xuLens then
+        wu.Controls.TextMuted("Depth of field needs the camera, so it stays on.")
     end
     if not XUtilsFx.UsesCamera(s) then return end
 
@@ -579,7 +583,7 @@ local function DrawCameraPanel(mod, c)
             { tooltip = "Keeps forward flat along the ground, so looking down does not fly you into it.\nUntick to fly where the camera points." })
         c:SliderFloat(IconGlyphs.Mouse, "xuLookSensitivity", 0.1, 5.0, {
             format = "%.2fx look",
-            tooltip = "Mouse speed while flying. Lower is steadier, and steadier is what a shot wants." .. TYPE_HINT,
+            tooltip = "Mouse look speed while flying, multiplying the sensitivity set in the game options.\nLower is steadier, and steadier is what a shot wants." .. TYPE_HINT,
         })
         c:Checkbox(IconGlyphs.Axis .. " Unlock Pitch", "xuPitchUnlocked",
             { tooltip = "Lets the camera tip past straight up and straight down, for an overhead move." })
@@ -587,7 +591,7 @@ local function DrawCameraPanel(mod, c)
 
     c:SliderFloat(IconGlyphs.HorizontalRotateClockwise, "xuRoll", -180.0, 180.0, {
         format = "%.0f roll",
-        tooltip = "Tilts the horizon. Q and E turn it during a free fly run." .. TYPE_HINT,
+        tooltip = "Tilts the horizon, and holds it there for the run." .. TYPE_HINT,
     })
 
     local shakeReaches = XUtilsFx.ShakeReachesCamera(s)
@@ -620,7 +624,10 @@ end
 local function DrawLensPanel(mod, c)
     local s = mod.settings
     c:Checkbox(IconGlyphs.CameraIris .. " Depth of Field", "xuLens",
-        { tooltip = "Puts a real lens on the camera, so what is out of focus blurs.\nIt needs the camera, and turns it on." })
+        {
+            tooltip = "Puts a real lens on the camera, so what is out of focus blurs.\nIt needs the camera, and turns it on.",
+            onChange = function(value) if value then s.xuCamera = true end end,
+        })
     if not s.xuLens then return end
 
     local matching = XUtilsFx.MatchingPreset(s)

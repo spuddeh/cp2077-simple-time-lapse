@@ -1,7 +1,7 @@
 # Simple Time-lapse (Timelapse Time Lapse) - Time Dilation and HUD Toggle — Nexus Changelogs
 
 ### [Unreleased - v2.0.0]
-- New: Depth of Field runs get a camera mode. Locked off holds the frame where the run started; Free fly moves the camera on WASD, Space and C at a speed you set, and V rides along so the city keeps loading around the shot
+- New: Depth of Field runs get a camera mode. Static holds the frame where the run started; Free fly moves the camera on WASD, Space and C at a speed you set, and V is brought along so the city keeps loading around the shot
 - New: Stay Level keeps a free fly camera moving flat along the ground, so looking down does not fly you into it
 - New: The weather sequence is reordered by dragging a state by its grip, instead of nudging it with arrows
 - Fix: V is hidden for the length of a Depth of Field run. Walking out from under the camera showed a headless body

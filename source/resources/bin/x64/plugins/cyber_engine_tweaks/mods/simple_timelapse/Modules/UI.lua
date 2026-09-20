@@ -197,7 +197,7 @@ local function DrawSummary(mod, Core)
             if freeFly then
                 Chip(IconGlyphs.Pan, string.format("Free fly at %.1f m/s", s.xuFlySpeed))
             else
-                Chip(IconGlyphs.Pan, "Camera locked off")
+                Chip(IconGlyphs.Pan, "Camera held still")
             end
         end
         if s.xuWeather and #s.xuWeatherList > 0 then
@@ -560,7 +560,7 @@ local function DrawLensPanel(mod, c)
     if not s.xuLens then return end
 
     c:Combo(IconGlyphs.Pan, "xuCameraMode", XUtilsFx.CAMERA_MODES, {
-        tooltip = "Locked off: the camera holds still where the run started.\nFree fly: WASD, Space and C move the camera, and V rides along under it.",
+        tooltip = "Static: the camera holds still where the run started, and the Player tab decides what V may do.\nFree fly: WASD, Space and C move the camera, and V is brought along. XUtils holds V still for this one, so the Player tab's locks are ignored.",
     })
     if s.xuCameraMode == 1 then
         c:SliderFloat(IconGlyphs.Speedometer, "xuFlySpeed", 0.5, 50.0, {
@@ -698,7 +698,9 @@ local function DrawWeatherPanel(mod, c)
                 onClick = function() removeIndex = i end,
             },
         })
-    end, function() Settings.Save(mod) end, { showHandle = true })
+    -- DragHorizontalVariant is the grip a reorderable list draws; DragDrop.list defaults
+    -- to a different one.
+    end, function() Settings.Save(mod) end, { showHandle = true, handleIcon = "DragHorizontalVariant" })
 
     if removeIndex then
         table.remove(list, removeIndex)

@@ -1,14 +1,14 @@
 ### [2026-09-20] Session
 - **[Simple Time-lapse] XUtilsFx.lua v2.0.0**:
-    - [New] `xuCameraMode` picks how the lens camera behaves. Locked off pauses the free-fly input, as before. Free fly leaves the input live, sets `teleportPlayer` and `teleportContinuous` so V rides under the camera and the world keeps streaming, and passes `freeFly = { baseSpeed = xuFlySpeed, movementMode = xuFlyLevel and "global" or "relative" }`.
-    - [Fix] The camera session's `playerMode` carries `invisible = true` in both modes. The session renders from outside the body and the first-person mesh has no head, so V walking out from under a locked-off camera showed a headless body.
+    - [New] `xuCameraMode` picks how the lens camera behaves. Static pauses the free-fly input. Free fly leaves the input live, sets `proximityTeleport` so V is brought along once the camera is 30 m clear and the world keeps streaming, and passes `freeFly = { baseSpeed = xuFlySpeed, movementMode = xuFlyLevel and "global" or "relative" }`.
+    - [Fix] The camera session's `playerMode` carries `invisible = true` in both modes. The session renders from outside the body and the first-person mesh has no head, so V walking out from under a static camera showed a headless body. `invisible` toggles visual components only, so anything that moves V is still heard. Free fly uses proximity teleport for that reason, not a per-frame one.
     - [New] Free fly resolves `playerMode.restrictions`, XUtils' own block of GameplayRestriction effects, instead of this mod's three locks. `XUtilsFx.IsFreeFly(settings)` is the single test.
 - **[Simple Time-lapse] Core.lua v2.0.0**:
     - [Fix] `CameraUtils.LockPlayer` is skipped on a free-fly lens run, so NoMovement and NoCombat are not applied from two places.
 - **[Simple Time-lapse] UI.lua v2.0.0**:
     - [New] Camera mode combo, Fly Speed slider (0.5 to 50 m/s) and Stay Level checkbox in the lens panel.
     - [New] Lock Movement, Lock Weapons and Lock Camera render inside `ImGui.BeginDisabled` on a free-fly lens run, under a line saying XUtils holds them. The run summary drops their chips and shows the camera mode instead.
-    - [Refactor] The weather sequence list is `wu.DragDrop.list` with `showHandle = true`, replacing the per-row up and down buttons. The grip is the only drag source, so the row's combo, slider and remove button keep their clicks.
+    - [Refactor] The weather sequence list is `wu.DragDrop.list` with `showHandle = true` and `handleIcon = "DragHorizontalVariant"`, the grip a reorderable `Lists.render` draws, replacing the per-row up and down buttons. The grip is the only drag source, so the row's combo, slider and remove button keep their clicks.
 
 ### [2026-09-19] Session
 - **[Simple Time-lapse] HudUtils.lua v2.0.0**:

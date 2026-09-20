@@ -18,8 +18,8 @@
 - [x] HUD hiding covers the vehicle HUD, and leaves other mods' overlays on screen. Needs Codeware.
 - [x] Cinema section, needing XUtils: depth of field with named lenses, a weather sequence across the
       run, cinematic bars, and fades in and out.
-- [x] Depth of field camera modes: Locked off holds the frame; Free fly moves the camera on WASD at a
-      set speed, with V carried under it so the world keeps streaming. V is hidden either way.
+- [x] Depth of field camera modes: Static holds the frame; Free fly moves the camera on WASD at a
+      set speed, bringing V along so the world keeps streaming. V is hidden either way.
 - [x] The weather sequence is reordered by dragging a state by its grip.
 
 ## Planned

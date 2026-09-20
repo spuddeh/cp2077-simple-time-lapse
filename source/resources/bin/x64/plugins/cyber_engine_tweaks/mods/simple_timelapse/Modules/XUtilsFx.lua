@@ -10,10 +10,10 @@
 --
 -- Depth of field exists only inside an XUtils camera session, and that camera is
 -- detached from the player rather than following V. The session starts at the player's
--- view, and the camera mode decides what happens next: Locked off pauses the free-fly
+-- view, and the camera mode decides what happens next: Static pauses the free-fly
 -- input so the frame holds still, and leaves the locks to this mod's own settings.
--- Free fly gives the input to XUtils, which then owns the restrictions, and teleports
--- V under the camera each frame so the world keeps streaming around the shot.
+-- Free fly gives the input to XUtils, which then owns the restrictions, and brings V
+-- along whenever the camera pulls 30 m clear so the world keeps streaming around the shot.
 --
 -- The bars and the fade sit on the HUD layer's window beside its Root canvas, so the
 -- HUD hide leaves them on screen.
@@ -33,7 +33,7 @@ XUtilsFx.FOCUS_CURVES = { "Sine", "Quadratic", "Cubic", "Smoothstep", "Circular"
 XUtilsFx.BAR_RATIOS = { 2.39, 2.00, 1.85 }
 XUtilsFx.BAR_LABELS = { "2.39:1", "2.00:1", "1.85:1" }
 XUtilsFx.WEATHER_MODES = { "Even split", "Percent per state", "Game hours per state" }
-XUtilsFx.CAMERA_MODES = { "Locked off", "Free fly" }
+XUtilsFx.CAMERA_MODES = { "Static", "Free fly" }
 
 -- Named lenses. Each sets the look sliders; focus behaviour is left as the player set it.
 XUtilsFx.LENS_PRESETS = {
@@ -175,7 +175,7 @@ local function StartLens(mod)
     local config = {
         -- V is hidden either way: the camera renders from outside the body, and the
         -- first-person mesh has no head.
-        -- Locked off applies none of XUtils' own locks, so this mod's Hold the shot
+        -- Static applies none of XUtils' own locks, so this mod's Hold the shot
         -- settings still decide what the player may do. Free fly hands input to XUtils,
         -- so XUtils also takes the restrictions.
         playerMode = freeFly and { invisible = true, restrictions = true } or { invisible = true },
@@ -198,9 +198,11 @@ local function StartLens(mod)
     }
 
     if freeFly then
-        -- V rides under the camera, so the world keeps streaming around the shot.
-        config.teleportPlayer = true
-        config.teleportContinuous = true
+        -- V is brought along only once the camera is 30 m clear, so the world keeps
+        -- streaming without V being slid under it every frame, which sounds like
+        -- footsteps. The hidden body has its visual components toggled off, not its
+        -- audio, so anything that moves V is heard.
+        config.proximityTeleport = { enabled = true, delay = 2.0, interval = 2.5, distance = 30.0 }
         config.freeFly = {
             baseSpeed = s.xuFlySpeed,
             movementMode = s.xuFlyLevel and "global" or "relative",

@@ -1,3 +1,10 @@
+### [2026-09-20] Session - the free-fly keys
+- **[Simple Time-lapse] XUtilsFx.lua v2.0.0**:
+    - [New] `RegisterFlyKeys` registers a control mode with `CameraController.registerControlMode`, naming XUtils' own six free-fly actions and pointing `scriptableSystemName` at `XUtils.XUtilsFreeFlyHotkeys`. The keys come from the player's XUtils bindings, so a rebind in Mod Settings is the key that works, and this mod adds no bindings of its own.
+    - [New] The slots call `FreeFlyController` by name - `setKeyState("rollLeft", down)` and the adjust and reset pairs - so the key indices stay XUtils' business. Precision holds `slow` alongside `precision`, which is what makes the fine move fine.
+    - [New] The run gets roll on Q and E, speed on the wheel, and roll, FOV and look sensitivity on their hold-and-scroll keys. No undo is needed: `CameraController.stop` resets the active mode and clears the handlers with the session.
+    - [Refactor] Camera hints stay off. The keys are named in the camera mode tooltip instead, because the hint overlay would sit in the middle of the shot.
+
 ### [2026-09-20] Session - the Camera section, fixed against a run
 - **[Simple Time-lapse] XUtilsFx.lua v2.0.0**:
     - [Fix] The camera transform is reached through the scriptable system's `GetCamera()`, not `XUtils.Camera`. XUtils exports only `CameraController`, `CameraShake` and `CameraLens`; its `Camera` module is internal, so the guard on it returned before anything ran. The shake pushed no undo and logged nothing, which is how a missing export looks.

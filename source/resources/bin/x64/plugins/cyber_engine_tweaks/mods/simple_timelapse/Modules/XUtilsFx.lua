@@ -230,6 +230,53 @@ end
 -- Sensitivity has no absolute setter: Adjust takes a number of steps, and a step is 0.1.
 local SENSITIVITY_STEP = 0.1
 
+--- Hands the free-fly keys to the run. The slots name XUtils' own actions and read their
+--- keys from XUtils' hotkey system, so a key the player rebound in Mod Settings is the key
+--- that works here. StopCamera clears the active mode and the handlers with the session.
+local function RegisterFlyKeys()
+    local x = XUtils()
+    local cc, ff = x and x.CameraController, x and x.FreeFlyController
+    if not cc or not ff or not cc.registerControlMode then return end
+
+    -- A held slot sets and clears one of the free-fly keys by name, so the numbers behind
+    -- those names stay XUtils' business.
+    local function Hold(...)
+        local names = { ... }
+        return function(down)
+            return function()
+                for _, name in ipairs(names) do ff.setKeyState(name, down) end
+            end
+        end
+    end
+    local precision = Hold("precision", "slow")
+    local rollLeft = Hold("rollLeft")
+    local rollRight = Hold("rollRight")
+
+    cc.registerControlMode(MOD_ID, "timelapse", {
+        title = "Time-lapse",
+        scriptableSystemName = "XUtils.XUtilsFreeFlyHotkeys",
+        slots = {
+            -- Precision holds slow as well, which is what makes the fine move fine.
+            { action = "XU_FreeFly_Precision", label = "Precision",
+              onPress = precision(true), onRelease = precision(false) },
+            { action = "XU_FreeFly_RollLeft", label = "Roll L",
+              onPress = rollLeft(true), onRelease = rollLeft(false) },
+            { action = "XU_FreeFly_RollRight", label = "Roll R",
+              onPress = rollRight(true), onRelease = rollRight(false) },
+            { action = "XU_FreeFly_Roll", label = "Roll",
+              onScroll = ff.adjustRoll, onMiddle = ff.resetRoll },
+            { action = "XU_FreeFly_FOV", label = "FOV",
+              onScroll = ff.adjustFOV, onMiddle = ff.resetFOV },
+            { action = "XU_FreeFly_Sensitivity", label = "Sensitivity",
+              onScroll = ff.adjustSensitivity, onMiddle = ff.resetSensitivity },
+        },
+        defaultScroll = ff.adjustSpeed,
+        defaultScrollLabel = "Speed",
+    })
+    cc.setActiveControlMode(MOD_ID, "timelapse")
+    Log.Debug("Free-fly keys registered")
+end
+
 --- Applies the free-fly feel settings to the session that has just started.
 local function ApplyFlyFeel(mod)
     local s = mod.settings
@@ -352,6 +399,7 @@ local function StartCamera(mod)
 
     if freeFly then
         ApplyFlyFeel(mod)
+        RegisterFlyKeys()
     else
         local sys = CameraSystem()
         if sys then sys:SetInputPaused(true) end

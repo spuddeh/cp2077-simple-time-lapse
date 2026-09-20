@@ -4,16 +4,22 @@
 -- Author:       Spuddeh
 --
 -- DESCRIPTION:
--- The optional features that run through CyanideX's XUtils: a lens with depth of field,
--- a weather sequence across the run, cinematic bars and fades. Every one is skipped
--- when XUtils is not installed, and every change records its own undo.
+-- The optional features that run through CyanideX's XUtils: a camera with shake and a
+-- lens with depth of field, a weather sequence across the run, cinematic bars and fades.
+-- Every one is skipped when XUtils is not installed, and every change records its own undo.
 --
--- Depth of field exists only inside an XUtils camera session, and that camera is
--- detached from the player rather than following V. The session starts at the player's
--- view, and the camera mode decides what happens next: Static pauses the free-fly
--- input so the frame holds still, and leaves the locks to this mod's own settings.
--- Free fly gives the input to XUtils, which then owns the restrictions, and brings V
--- along whenever the camera pulls 30 m clear so the world keeps streaming around the shot.
+-- The camera is an XUtils session, detached from the player rather than following V. It
+-- starts at the player's view, and the camera mode decides what happens next: Static
+-- pauses the free-fly input so the frame holds still, and leaves the locks to this mod's
+-- own settings. Free fly gives the input to XUtils, which then owns the restrictions, and
+-- brings V along whenever the camera pulls 30 m clear so the world keeps streaming.
+--
+-- Depth of field exists only inside that session, so asking for the lens asks for the
+-- camera. The camera without the lens moves the shot and leaves the picture alone.
+--
+-- Shake reaches a static camera only. XUtils applies a shake on its playback, timeline
+-- and point cloud paths, and the free-fly path writes the camera itself every frame, so
+-- a shake written from here would be overwritten before it drew.
 --
 -- The bars and the fade sit on the HUD layer's window beside its Root canvas, so the
 -- HUD hide leaves them on screen.
@@ -46,6 +52,11 @@ XUtilsFx.LENS_PRESETS = {
 
 local handle = nil
 
+-- The shake of the run in progress, and the parked transform it displaces. Only a
+-- static camera has one: see XUtilsFx.ShakeReachesCamera.
+local shake = nil
+local shakeBase = nil
+
 -- The weather schedule of the run in progress: segments, the one applied, and how
 -- progress is measured.
 local weatherRun = nil
@@ -63,10 +74,32 @@ function XUtilsFx.IsAvailable()
     return x ~= nil and x.Subscribe ~= nil
 end
 
+--- True when the run takes over the camera. Depth of field needs the session, so it
+--- turns the camera on with it.
+function XUtilsFx.UsesCamera(s)
+    return XUtilsFx.IsAvailable() and (s.xuCamera or s.xuLens)
+end
+
 --- True when the run will fly the camera rather than park it. The player's own
 --- movement and camera locks do nothing in that case: XUtils owns the input.
 function XUtilsFx.IsFreeFly(s)
-    return XUtilsFx.IsAvailable() and s.xuLens and s.xuCameraMode == 1
+    return XUtilsFx.UsesCamera(s) and s.xuCameraMode == 1
+end
+
+--- Shake reaches a parked camera only. XUtils applies a shake on its playback, timeline
+--- and point cloud paths; the free-fly path rewrites the camera every frame instead, so
+--- there is no frame in which a shake written from here would survive.
+function XUtilsFx.ShakeReachesCamera(s)
+    return XUtilsFx.UsesCamera(s) and s.xuCameraMode == 0
+end
+
+--- The shake recipes XUtils ships, newest read each call so a user preset shows up.
+function XUtilsFx.ShakePresets()
+    local x = XUtils()
+    if not x or not x.CameraShake then return {} end
+    local ok, names = pcall(x.CameraShake.GetPresetNames)
+    if not ok or type(names) ~= "table" then return {} end
+    return names
 end
 
 local function Handle()
@@ -162,11 +195,72 @@ end
 -- ### START ###
 -- =================================================================
 
-local function StartLens(mod)
+-- Sensitivity has no absolute setter: Adjust takes a number of steps, and a step is 0.1.
+local SENSITIVITY_STEP = 0.1
+
+--- Applies the free-fly feel settings to the session that has just started.
+local function ApplyFlyFeel(mod)
+    local s = mod.settings
+    local x = XUtils()
+    local ff = x and x.FreeFlyController
+    if not ff then return end
+
+    ff.resetSensitivity()
+    local current = ff.getSensitivity() or 1.0
+    if math.abs(s.xuLookSensitivity - current) > 0.001 then
+        ff.adjustSensitivity((s.xuLookSensitivity - current) / SENSITIVITY_STEP)
+    end
+
+    ff.setRoll(s.xuRoll)
+    ff.setPitchUnlocked(s.xuPitchUnlocked)
+end
+
+--- Starts a shake over the parked camera, and records the transform it displaces.
+local function StartShake(mod)
+    local s = mod.settings
+    local x = XUtils()
+    if not x or not x.CameraShake or not x.Camera then return end
+
+    local ok, instance = pcall(x.CameraShake.new)
+    if not ok or not instance then
+        Log.Warn("The camera shake did not start (%s)", tostring(instance))
+        return
+    end
+
+    if s.xuShakePreset ~= "" then instance:LoadPreset(s.xuShakePreset) end
+    instance:Reconfigure({ intensity = s.xuShakeIntensity })
+
+    shakeBase = x.Camera.getTransform()
+    if not shakeBase then
+        Log.Warn("The camera transform could not be read, the shake is skipped")
+        instance:Destroy()
+        return
+    end
+
+    instance:Start()
+    shake = instance
+
+    Undo.Push("shake", function()
+        local base, current = shakeBase, shake
+        shake, shakeBase = nil, nil
+        if current then
+            current:Stop()
+            current:Destroy()
+        end
+        -- The camera is put back where the shake found it, before the session stops.
+        local cam = XUtils() and XUtils().Camera
+        if cam and base then
+            cam.setTransform(base.position.x, base.position.y, base.position.z,
+                base.rotation.yaw, base.rotation.pitch, base.rotation.roll)
+        end
+    end)
+end
+
+local function StartCamera(mod)
     local s = mod.settings
     local h = Handle()
     if not h then
-        Log.Warn("XUtils did not accept a subscription, the lens is skipped")
+        Log.Warn("XUtils did not accept a subscription, the camera is skipped")
         return
     end
 
@@ -183,7 +277,12 @@ local function StartLens(mod)
         showOverlay = false,
         showMinimap = false,
         blendTime = 0,
-        lens = {
+    }
+
+    -- The session is what depth of field needs; without it the camera moves and the
+    -- picture is left alone.
+    if s.xuLens then
+        config.lens = {
             dofMode = XUtilsFx.DOF_MODES[s.xuDofMode + 1] or "both",
             focalLength = s.xuFocalLength,
             fstop = s.xuFstop,
@@ -194,8 +293,8 @@ local function StartLens(mod)
             autofocusMaxRange = s.xuFocusRange,
             afTransitionDuration = s.xuFocusSpeed,
             afCurve = XUtilsFx.FOCUS_CURVES[s.xuFocusCurve + 1] or "Sine",
-        },
-    }
+        }
+    end
 
     if freeFly then
         -- V is brought along only once the camera is 30 m clear, so the world keeps
@@ -211,17 +310,20 @@ local function StartLens(mod)
 
     local started = h:StartCamera(config)
     if started ~= true then
-        Log.Warn("The XUtils camera did not start (%s), the lens is skipped. Another mod may own it",
+        Log.Warn("The XUtils camera did not start (%s), and is skipped. Another mod may own it",
             tostring(started))
         return
     end
 
-    if not freeFly then
+    if freeFly then
+        ApplyFlyFeel(mod)
+    else
         local sys = CameraSystem()
         if sys then sys:SetInputPaused(true) end
     end
 
-    Undo.Push("lens", function()
+    -- Pushed after the shake, so the shake puts the camera back before the session ends.
+    Undo.Push("camera", function()
         local cameraSystem = CameraSystem()
         if cameraSystem then cameraSystem:SetInputPaused(false) end
         h:StopCamera({ blendTime = 0 })
@@ -278,7 +380,10 @@ end
 function XUtilsFx.Start(mod)
     if not XUtilsFx.IsAvailable() then return end
     local s = mod.settings
-    if s.xuLens then StartLens(mod) end
+    if XUtilsFx.UsesCamera(s) then
+        StartCamera(mod)
+        if s.xuShake and XUtilsFx.ShakeReachesCamera(s) then StartShake(mod) end
+    end
     if s.xuWeather then StartWeather(mod) end
     if s.xuBars then StartBars(mod) end
     if s.xuFadeIn then StartFadeIn(mod) end
@@ -290,7 +395,16 @@ end
 
 --- Moves the weather to the segment the run has reached, and starts the closing fade
 --- when a timed run is that close to its end.
-function XUtilsFx.Update(mod, currentGameSeconds)
+function XUtilsFx.Update(mod, currentGameSeconds, delta)
+    if shake and shakeBase then
+        local x = XUtils()
+        local position, rotation = shake:Apply(shakeBase.position, shakeBase.rotation, { delta = delta })
+        if x and x.Camera and position and rotation then
+            x.Camera.setTransform(position.x, position.y, position.z,
+                rotation.yaw, rotation.pitch, rotation.roll)
+        end
+    end
+
     if weatherRun then
         local progress
         if weatherRun.byGameTime then

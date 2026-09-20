@@ -20,6 +20,8 @@
       run, cinematic bars, and fades in and out.
 - [x] Depth of field camera modes: Static holds the frame; Free fly moves the camera on WASD at a
       set speed, bringing V along so the world keeps streaming. V is hidden either way.
+- [x] Camera shake over a static camera, from the recipes XUtils ships, with a strength slider.
+- [x] Free fly feel: look sensitivity, roll and an unlockable pitch.
 - [x] The weather sequence is reordered by dragging a state by its grip.
 
 ## Planned

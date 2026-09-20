@@ -564,7 +564,7 @@ function Core.Update(mod, delta, HudUtils)
             end
         end
 
-        XUtilsFx.Update(mod, Core.GetTotalGameSeconds())
+        XUtilsFx.Update(mod, Core.GetTotalGameSeconds(), delta)
 
         if mod.settings.duration > 0 then
             if mod.elapsedTime >= mod.settings.duration then

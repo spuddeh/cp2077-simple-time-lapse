@@ -72,10 +72,18 @@ local mod = {
         muteNotifications = true,
 
         -- XUtils features, skipped when XUtils is not installed.
-        xuLens = false,
+        xuCamera = false,
         xuCameraMode = 0,
         xuFlySpeed = 3.0,
         xuFlyLevel = true,
+        xuLookSensitivity = 1.0,
+        xuRoll = 0.0,
+        xuPitchUnlocked = false,
+        xuShake = false,
+        xuShakePreset = "handheld",
+        xuShakeIntensity = 1.0,
+
+        xuLens = false,
         xuDofMode = 2,
         xuFocalLength = 35.0,
         xuFstop = 8.0,

@@ -1,3 +1,16 @@
+### [2026-09-20] Session - the Camera section
+- **[Simple Time-lapse] XUtilsFx.lua v2.0.0**:
+    - [Refactor] `StartLens` is `StartCamera`, and the lens config is attached only when `xuLens` is set. The camera session no longer implies depth of field, so a moving shot can leave the picture alone. `XUtilsFx.UsesCamera(s)` is true for either, because the lens needs the session.
+    - [New] `ApplyFlyFeel` sets look sensitivity, roll and pitch lock on the session that has just started. Sensitivity has no absolute setter: `AdjustSensitivity` takes a number of 0.1 steps, so it resets first and adjusts by the difference.
+    - [New] `StartShake` builds a `CameraShake` from an XUtils preset name and an intensity, records the parked transform, and `XUtilsFx.Update` writes `Apply`'s result through `XUtils.Camera.setTransform` each frame. Its undo puts the camera back before the session's undo stops it.
+    - [New] `XUtilsFx.ShakeReachesCamera(s)` gates the shake to a static camera. XUtils applies a shake on its playback, timeline and point cloud paths only; the free-fly path calls `m_freeFly.Update(delta, m_camera)` every frame and overwrites anything written from Lua. `m_freeFly.Update` is itself gated on `!IsInputSuppressed()`, which is what makes the static path free.
+    - [New] `XUtilsFx.ShakePresets()` reads `CameraShake.GetPresetNames()` at call time rather than listing them, so a user preset appears without a change here.
+- **[Simple Time-lapse] UI.lua v2.0.0**:
+    - [New] A Camera section above Lens in Cinema: the camera toggle, mode, fly speed, stay level, look sensitivity, unlock pitch, roll, and the shake preset and strength. The shake controls sit in `ImGui.BeginDisabled` with a line saying it reaches a static camera only.
+    - [Refactor] The shake preset is a `Controls.StringCombo`, so the saved value survives XUtils reordering or adding a preset.
+- **[Simple Time-lapse] Core.lua v2.0.0**:
+    - [Refactor] `XUtilsFx.Update` takes the frame delta, which the shake needs.
+
 ### [2026-09-20] Session
 - **[Simple Time-lapse] XUtilsFx.lua v2.0.0**:
     - [New] `xuCameraMode` picks how the lens camera behaves. Static pauses the free-fly input. Free fly leaves the input live, sets `proximityTeleport` so V is brought along once the camera is 30 m clear and the world keeps streaming, and passes `freeFly = { baseSpeed = xuFlySpeed, movementMode = xuFlyLevel and "global" or "relative" }`.

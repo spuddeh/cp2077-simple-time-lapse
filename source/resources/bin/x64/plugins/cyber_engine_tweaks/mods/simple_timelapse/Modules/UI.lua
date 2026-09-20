@@ -192,13 +192,18 @@ local function DrawSummary(mod, Core)
     if s.useStartTime and s.restoreTime then Chip(IconGlyphs.Restore, "Game time put back on Stop") end
     if s.startDelay > 0 then Chip(IconGlyphs.TimerOutline, string.format("%.1fs countdown", s.startDelay)) end
     if XUtilsFx.IsAvailable() then
-        if s.xuLens then
-            Chip(IconGlyphs.CameraIris, string.format("Depth of field, %.0f mm at f/%.1f", s.xuFocalLength, s.xuFstop))
+        if XUtilsFx.UsesCamera(s) then
             if freeFly then
                 Chip(IconGlyphs.Pan, string.format("Free fly at %.1f m/s", s.xuFlySpeed))
             else
                 Chip(IconGlyphs.Pan, "Camera held still")
             end
+            if s.xuShake and XUtilsFx.ShakeReachesCamera(s) then
+                Chip(IconGlyphs.Vibrate, string.format("Shake, %s at %.2f", s.xuShakePreset, s.xuShakeIntensity))
+            end
+        end
+        if s.xuLens then
+            Chip(IconGlyphs.CameraIris, string.format("Depth of field, %.0f mm at f/%.1f", s.xuFocalLength, s.xuFstop))
         end
         if s.xuWeather and #s.xuWeatherList > 0 then
             Chip(IconGlyphs.WeatherCloudy, string.format("Weather sequence, %d state%s", #s.xuWeatherList,
@@ -553,11 +558,14 @@ local function DrawPlayerSection(mod, HudUtils, c)
     end
 end
 
-local function DrawLensPanel(mod, c)
+local function DrawCameraPanel(mod, c)
     local s = mod.settings
-    c:Checkbox(IconGlyphs.CameraIris .. " Depth of Field", "xuLens",
-        { tooltip = "Shoots the run through an XUtils camera with a real lens, so what is out of focus blurs.\nThe camera starts at V's view, and V is hidden for the run." })
-    if not s.xuLens then return end
+    c:Checkbox(IconGlyphs.CameraControl .. " Camera", "xuCamera",
+        { tooltip = "Shoots the run through an XUtils camera instead of V's own view.\nThe camera starts at V's view, and V is hidden for the run." })
+    if s.xuLens and not s.xuCamera then
+        wu.Controls.TextMuted("Depth of field needs the camera, so it is on for this run.")
+    end
+    if not XUtilsFx.UsesCamera(s) then return end
 
     c:Combo(IconGlyphs.Pan, "xuCameraMode", XUtilsFx.CAMERA_MODES, {
         tooltip = "Static: the camera holds still where the run started. The Player tab decides what V can do.\nFree fly: WASD, Space and C move the camera. The Player tab's locks do not apply.",
@@ -569,7 +577,51 @@ local function DrawLensPanel(mod, c)
         })
         c:Checkbox(IconGlyphs.PanHorizontal .. " Stay Level", "xuFlyLevel",
             { tooltip = "Keeps forward flat along the ground, so looking down does not fly you into it.\nUntick to fly where the camera points." })
+        c:SliderFloat(IconGlyphs.Mouse, "xuLookSensitivity", 0.1, 5.0, {
+            format = "%.2fx look",
+            tooltip = "Mouse speed while flying. Lower is steadier, and steadier is what a shot wants." .. TYPE_HINT,
+        })
+        c:Checkbox(IconGlyphs.Axis .. " Unlock Pitch", "xuPitchUnlocked",
+            { tooltip = "Lets the camera tip past straight up and straight down, for an overhead move." })
     end
+
+    c:SliderFloat(IconGlyphs.HorizontalRotateClockwise, "xuRoll", -180.0, 180.0, {
+        format = "%.0f roll",
+        tooltip = "Tilts the horizon. Q and E turn it during a free fly run." .. TYPE_HINT,
+    })
+
+    local shakeReaches = XUtilsFx.ShakeReachesCamera(s)
+    if not shakeReaches then
+        wu.Controls.TextMuted("Shake reaches a static camera only.")
+    end
+    ImGui.BeginDisabled(not shakeReaches)
+    c:Checkbox(IconGlyphs.Vibrate .. " Camera Shake", "xuShake",
+        { tooltip = "Gives the parked camera a little life, the way a camera on a shoulder has." })
+    if s.xuShake and shakeReaches then
+        local presets = XUtilsFx.ShakePresets()
+        if #presets == 0 then
+            wu.Controls.TextMuted("XUtils reported no shake presets.")
+        else
+            local picked, pickedChanged = wu.Controls.StringCombo(IconGlyphs.Waveform, "ShakePreset",
+                s.xuShakePreset, presets, { cols = 6, tooltip = "Which shake recipe to run." })
+            if pickedChanged then
+                s.xuShakePreset = picked
+                Settings.Save(mod)
+            end
+            c:SliderFloat(IconGlyphs.Vibrate, "xuShakeIntensity", 0.0, 3.0, {
+                format = "%.2f strength",
+                tooltip = "Scales the whole recipe. 0 is still." .. TYPE_HINT,
+            })
+        end
+    end
+    ImGui.EndDisabled()
+end
+
+local function DrawLensPanel(mod, c)
+    local s = mod.settings
+    c:Checkbox(IconGlyphs.CameraIris .. " Depth of Field", "xuLens",
+        { tooltip = "Puts a real lens on the camera, so what is out of focus blurs.\nIt needs the camera, and turns it on." })
+    if not s.xuLens then return end
 
     local matching = XUtilsFx.MatchingPreset(s)
     local presetRow = {}
@@ -756,7 +808,7 @@ end
 local function DrawCinemaSection(mod, c)
     if not XUtilsFx.IsAvailable() then
         ImGui.PushTextWrapPos(0.0)
-        wu.Controls.TextMuted("Depth of field, a weather sequence, cinematic bars and fades need XUtils by CyanideX. Install it from Nexus Mods to use them.")
+        wu.Controls.TextMuted("A moving camera, depth of field, a weather sequence, cinematic bars and fades need XUtils by CyanideX. Install it from Nexus Mods to use them.")
         ImGui.PopTextWrapPos()
         return
     end
@@ -765,7 +817,9 @@ local function DrawCinemaSection(mod, c)
         wu.Controls.TextMuted("These options are locked while a time-lapse runs.")
     end
     ImGui.BeginDisabled(mod.isActive)
-    wu.Controls.SectionHeader("Lens", nil, 4, nil, nil, { separatorAfter = true })
+    wu.Controls.SectionHeader("Camera", nil, 4, nil, nil, { separatorAfter = true })
+    DrawCameraPanel(mod, c)
+    wu.Controls.SectionHeader("Lens", 6, 4, nil, nil, { separatorAfter = true })
     DrawLensPanel(mod, c)
     wu.Controls.SectionHeader("Weather", 6, 4, nil, nil, { separatorAfter = true })
     DrawWeatherPanel(mod, c)

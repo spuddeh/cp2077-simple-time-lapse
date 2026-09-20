@@ -3,7 +3,7 @@
 ### [Unreleased - v2.0.0]
 - New: A Camera section in Cinema, separate from the lens. A moving shot no longer costs you depth of field, and depth of field turns the camera on when you need it
 - New: Camera Shake for a static camera, with the seventeen recipes XUtils ships (handheld, sway, subtle, cinematic and the rest) and a strength slider
-- New: A free fly run takes the XUtils camera keys - Q and E roll, the wheel changes speed, Ctrl is precision, and the roll, FOV and sensitivity keys change those with the wheel. They are your own XUtils bindings, so rebinding them under XUtils in Mod Settings works here too
+- New: A free fly run takes the XUtils camera keys - Q and E roll, the wheel sets speed, Ctrl is precision, and holding R, F or X with the wheel sets roll, field of view or look sensitivity. They are your own XUtils bindings, so rebinding them under XUtils, FreeFly Keys, in Mod Settings works here too
 - New: Look sensitivity, Unlock Pitch and a roll slider for a free fly camera. Lower sensitivity is the steadier shot
 - New: Depth of Field runs get a camera mode. Static holds the frame where the run started; Free fly moves the camera on WASD, Space and C at a speed you set, and V is brought along so the city keeps loading around the shot
 - New: Stay Level keeps a free fly camera moving flat along the ground, so looking down does not fly you into it

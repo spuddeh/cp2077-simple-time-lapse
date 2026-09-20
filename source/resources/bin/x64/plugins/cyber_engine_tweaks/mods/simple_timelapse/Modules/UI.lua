@@ -572,7 +572,7 @@ local function DrawCameraPanel(mod, c)
     if not XUtilsFx.UsesCamera(s) then return end
 
     c:Combo(IconGlyphs.Pan, "xuCameraMode", XUtilsFx.CAMERA_MODES, {
-        tooltip = "Static: the camera holds still where the run started. The Player tab decides what V can do.\nFree fly: WASD, Space and C move the camera. The Player tab's locks do not apply.\n\nFlying also takes the XUtils camera keys: Q and E roll, the wheel changes speed, Ctrl is precision, and holding the roll, FOV or sensitivity key with the wheel changes that instead. Rebind them under XUtils in Mod Settings.",
+        tooltip = "Static: the camera holds still where the run started. The Player tab decides what V can do.\nFree fly: WASD, Space and C move the camera. The Player tab's locks do not apply.\n\nFlying takes the XUtils camera keys. Q and E roll, the wheel sets speed, Ctrl is precision, and holding R, F or X with the wheel sets roll, field of view or look sensitivity. Middle-click while holding one puts it back.\nRebind them under XUtils, FreeFly Keys, in Mod Settings.",
     })
     if s.xuCameraMode == 1 then
         c:SliderFloat(IconGlyphs.Speedometer, "xuFlySpeed", 0.5, 50.0, {

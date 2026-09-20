@@ -560,14 +560,16 @@ end
 
 local function DrawCameraPanel(mod, c)
     local s = mod.settings
-    -- Depth of field cannot run without the session, so the lens holds this on rather
-    -- than working around it.
-    ImGui.BeginDisabled(s.xuLens)
-    c:Checkbox(IconGlyphs.CameraControl .. " Camera", "xuCamera",
-        { tooltip = "Shoots the run through an XUtils camera instead of V's own view.\nThe camera starts at V's view, and V is hidden for the run." })
-    ImGui.EndDisabled()
+    local cameraTooltip = "Shoots the run through an XUtils camera instead of V's own view.\nThe camera starts at V's view, and V is hidden for the run."
     if s.xuLens then
+        -- The lens shows this held on rather than setting it, so the setting still holds
+        -- what was asked for and turning the lens off gives that back.
+        ImGui.BeginDisabled(true)
+        wu.Controls.Checkbox(IconGlyphs.CameraControl .. " Camera", true, { tooltip = cameraTooltip })
+        ImGui.EndDisabled()
         wu.Controls.TextMuted("Depth of field needs the camera, so it stays on.")
+    else
+        c:Checkbox(IconGlyphs.CameraControl .. " Camera", "xuCamera", { tooltip = cameraTooltip })
     end
     if not XUtilsFx.UsesCamera(s) then return end
 
@@ -624,10 +626,7 @@ end
 local function DrawLensPanel(mod, c)
     local s = mod.settings
     c:Checkbox(IconGlyphs.CameraIris .. " Depth of Field", "xuLens",
-        {
-            tooltip = "Puts a real lens on the camera, so what is out of focus blurs.\nIt needs the camera, and turns it on.",
-            onChange = function(value) if value then s.xuCamera = true end end,
-        })
+        { tooltip = "Puts a real lens on the camera, so what is out of focus blurs.\nIt holds the camera on for as long as it is ticked." })
     if not s.xuLens then return end
 
     local matching = XUtilsFx.MatchingPreset(s)

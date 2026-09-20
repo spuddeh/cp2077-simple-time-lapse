@@ -1,3 +1,8 @@
+### [2026-09-20] Session - the lens implies the camera rather than setting it
+- **[Simple Time-lapse] UI.lua v2.0.0**:
+    - [Fix] The lens no longer writes `xuCamera`. It draws a held-on checkbox instead, and `XUtilsFx.UsesCamera` already reads `xuCamera or xuLens`, so the setting keeps what the player asked for and turning depth of field off gives the camera back to that. Setting the flag left the camera on afterwards, with nothing recording that the lens is what turned it on.
+    - [Refactor] `xuCamera` is written in one place, its own checkbox.
+
 ### [2026-09-20] Session - the camera parked at the origin
 - **[Simple Time-lapse] XUtilsFx.lua v2.0.0**:
     - [Fix] `RedCamera` waits for `IsReady`, not `IsSpawned`. `XUtilsCamera.Spawn` sets the spawned flag on the call that requests the entity and leaves `m_isReady` false until the entity attaches, and `GetPosition` returns 0, 0, 0 for an unresolved entity. `GetTransformString` formats that as six valid numbers, so a base read on an early frame parsed cleanly and pinned the shot at the world origin for the run. A race, so it took some runs and not others.

@@ -6,87 +6,125 @@
 [line]
 [size=3]Simple Time-lapse gives you control over the flow of time in Night City.
 
-It handles all the setup for cinematic recording automatically: hiding the HUD, locking your position, disabling head-bob, and then restoring everything exactly how it was when you're done.[/size]
+It handles the setup for cinematic recording: hiding the HUD, holding your position, silencing the radio and notifications, and then putting everything back exactly as it was when you are done.[/size]
 
-[color=#ffff00][b]New in v1.3.0: Traffic & Scene Control[/b][/color]
-You now have full control over what moves (or doesn't) during a time-lapse:
-[list][*][b]Disable Air Traffic[/b] — Removes flying AVs from the scene. Great for clean skyline shots.
-[*][b]Disable Crowds & Traffic[/b] — Clears out all pedestrians and street vehicles for empty city vibes.
-[*][b]Traffic Frenzy (Experimental)[/b] — Speeds up ambient traffic to match your time-lapse speed. Works around the engine's vehicle time dilation limitation by injecting AI drive commands with scaled speeds. Also applies collision recovery and safety overrides to keep traffic flowing. Expect some jank, but the results can look great.
+[color=#ffff00][b]Updating from v1.3.0 - read this first[/b][/color]
+[list]
+[*][b]Two new requirements.[/b] The window is rebuilt on [url=https://www.nexusmods.com/cyberpunk2077/mods/26589]Window Utils[/url], and hiding the HUD now goes through [url=https://www.nexusmods.com/cyberpunk2077/mods/7780]Codeware[/url]. Install both before updating. Without Window Utils the window will not draw, though your hotkeys still work.[/*]
+[*][b]Unlock Speed Limit is gone.[/b] The engine caps simulation at 10x whatever it is told, so the setting never did anything. Simulation Mode now goes to 10x and stops there.[/*]
+[*][b]Jump to Time is now Set Time on Start[/b], and it has a companion: Restore Time on Stop puts the clock back where it was.[/*]
+[*][b]Your settings carry over.[/b] Anything new arrives at its default.[/*]
 [/list]
-[color=#ffff00][b]v1.2.0: Clock Mode[/b][/color]
-Speed up the day/night cycle [i]without[/i] speeding up the city. Watch the sun set and the neon lights turn on while traffic and crowds move at their normal pace. A completely different vibe compared to the frantic energy of simulation mode.
 
+[color=#ffff00][b]New in v2.0.0[/b][/color]
+[list]
+[*][b]A rebuilt window[/b] with tabs, a pinned summary of what the run will do, and the clock and START always in reach.[/*]
+[*][b]Presets.[/b] Defaults, Sunrise, City Rush and Empty City ship with the mod, and you can save your own.[/*]
+[*][b]A Cinema section[/b] - a moving camera, depth of field, camera shake, a weather sequence, cinematic bars and fades. Needs [url=https://www.nexusmods.com/cyberpunk2077/mods/30296]XUtils[/url], and the rest of the mod works without it.[/*]
+[*][b]Auto Speed for Clock Mode.[/b] Give it a start time, an end time, how many days to cross and how long the run lasts, and it works the speed out for you.[/*]
+[*][b]Audio control.[/b] Mute the radio, the score, sound effects and notifications for the length of a run. A call that arrives mid-run has its ringtone cut.[/*]
+[*][b]Clock Mode reaches three game hours per real second.[/b][/*]
+[/list]
 [line]
 [size=5][b][color=#ffff00]Features[/color][/b][/size]
 
 [list]
 [*][b]Two Time-lapse Modes:[/b]
 [list]
-[*][b]Simulation Mode:[/b] Speed up everything (0.5x to 10x). Best for busy city intersections and flowing traffic.
-[*][b]Clock Mode:[/b] Speed up only the sky and lighting (up to 1000x). Best for atmospheric transition shots.
-[/list][*][b]Smart HUD Control:[/b] Automatically hides the UI during recording and restores your specific settings afterwards.
-[*][b]Steady Camera:[/b] Locks player movement and camera rotation for a perfectly stable tripod shot.
-[*][b]Precision Control:[/b] 
+[*][b]Simulation Mode:[/b] Speeds up everything, to the engine's limit of 10x. Best for busy intersections and flowing traffic.[/*]
+[*][b]Clock Mode:[/b] Speeds up only the sky and lighting, up to three game hours per real second. Best for atmospheric transition shots.[/*]
+[/list][/*]
+[*][b]Presets:[/b] A named recipe carries every setting but the log level. Four ship with the mod, and saving your own takes one button.[/*]
+[*][b]Run Summary:[/b] Mode, speed, length and start time in one line above the panel, with an icon for every option the run will apply.[/*]
+[*][b]Smart HUD Control:[/b] Hides the whole HUD for the run, the vehicle HUD included, and restores it afterwards. Other mods' on-screen overlays are left alone.[/*]
+[*][b]Steady Camera:[/b] Holds movement, weapons and camera rotation for a tripod shot, and turns off head bob.[/*]
+[*][b]Audio Control:[/b] Mute the radio, the score, sound effects and notifications for the run. Each one comes back on Stop.[/*]
+[*][b]Scene Control:[/b]
 [list]
-[*]Input exact speed values (e.g. 60x for 1 hour/minute).
-[*]Set specific durations or run infinitely.
-[*]"Jump to Time" lets you skip straight to golden hour before rolling.
-[/list][*] [b]Safety First:[/b]
+[*]Disable flying AVs for clean skylines.[/*]
+[*]Disable crowds and street traffic for an empty city.[/*]
+[*]Traffic Frenzy speeds up nearby vehicles, with an adjustable multiplier.[/*]
+[/list][/*]
+[*][b]Precision Control:[/b]
 [list]
-[*]Won't start if you're in combat.
-[*]Prevents physics exploding by clamping speeds when switching modes.
-[*]Manual "Unlock" buttons in the debug tab if you ever get stuck.
-[/list][*][b]Scene Control (New in v1.3.0):[/b]
+[*]Ctrl+click any slider to type an exact value.[/*]
+[*]Set a duration or run until you stop it.[/*]
+[*]Set Time on Start skips straight to golden hour, and Restore Time on Stop puts the clock back.[/*]
+[/list][/*]
+[*][b]Safety:[/b]
 [list]
-[*]Disable flying AVs for clean skylines.
-[*]Disable all crowds and traffic for empty city shots.
-[*]Traffic Frenzy mode to speed up vehicles with adjustable multiplier.
-[/list][/list]
+[*]Refuses to start while you are in combat, which you can turn off.[/*]
+[*]Stops the run when you open the pause or hub menus, and says so when you return.[/*]
+[*]Clamps the speed when switching modes so physics does not explode.[/*]
+[*]Every change a run makes is put back on Stop, and panic buttons on the Debug tab cover anything a crash left behind.[/*]
+[/list][/*]
+[/list]
+[line]
+[size=5][b][color=#ffff00]Cinema - with XUtils installed[/color][/b][/size]
+
+Install [url=https://www.nexusmods.com/cyberpunk2077/mods/30296]XUtils[/url] by CyanideX and the Cinema tab fills in. Without it the tab says so and nothing else changes.
+
+[list]
+[*][b]Camera:[/b] Static holds the frame where the run started. Free fly moves the camera on WASD, Space and C at a speed you set, and brings V along so the city keeps loading around the shot. V is hidden either way.[/*]
+[*][b]Free fly controls:[/b] Q and E roll, the wheel sets speed, Ctrl is precision, and holding R, F or X with the wheel sets roll, field of view or look sensitivity. These are your own XUtils bindings, so rebinding them under XUtils in Mod Settings works here too.[/*]
+[*][b]Camera Shake:[/b] The recipes XUtils ships - handheld, sway, subtle, cinematic and more - over a static camera, with a strength slider.[/*]
+[*][b]Depth of Field:[/b] A real lens on the camera, with five named presets from Natural to Dreamy, autofocus, and full control of focal length, aperture and blur.[/*]
+[*][b]Weather Sequence:[/b] Move through a list of weather states across the run, split evenly, by percentage, or by game hours each. The natural weather returns on Stop.[/*]
+[*][b]Framing:[/b] Cinematic bars at 2.39:1, 2.00:1 or 1.85:1, and a fade in at the start or out at the end.[/*]
+[/list]
+[line]
+[size=5][b][color=#ffff00]Requirements[/color][/b][/size]
+
+[list]
+[*][url=https://www.nexusmods.com/cyberpunk2077/mods/107]Cyber Engine Tweaks[/url][/*]
+[*][url=https://www.nexusmods.com/cyberpunk2077/mods/26589]Window Utils[/url] - the mod window is drawn with it[/*]
+[*][url=https://www.nexusmods.com/cyberpunk2077/mods/7780]Codeware[/url] - hiding the HUD needs it[/*]
+[*][url=https://www.nexusmods.com/cyberpunk2077/mods/30296]XUtils[/url] - optional, for the Cinema section[/*]
+[/list]
 [line]
 [size=5][b][color=#ffff00]How to Use[/color][/b][/size]
 
 [list=1]
-[*]Open the [b]Cyber Engine Tweaks[/b] overlay.
-[*]Bind a hotkey for [b]"Start/Stop Time-lapse"[/b].
-[*](Optional) Bind a hotkey for [b]"Toggle HUD"[/b] for quick screenshots.
-[*]In the mod window, pick your settings:
-[list]
-[*][b]Mode:[/b] Simulation or Clock.
-[*][b]Speed:[/b] How fast you want time to pass.
-[*][b]Duration:[/b] How long to record for.
-[/list]
-[*]Close the overlay, frame your shot, and hit the hotkey.
+[*]Open the [b]Cyber Engine Tweaks[/b] overlay.[/*]
+[*]Bind a hotkey for [b]"Start/Stop Time-lapse"[/b].[/*]
+[*](Optional) Bind a hotkey for [b]"Toggle HUD"[/b] for quick screenshots.[/*]
+[*]Pick a preset, or set the mode, speed and duration yourself.[/*]
+[*]Close the overlay, frame your shot, and hit the hotkey.[/*]
 [/list][center][youtube]DklQ6SAhm10[/youtube][/center]
 [line]
 [size=5][b][color=#ffff00]Compatibility[/color][/b][/size]
 
 Works with:
-[list][*][b][url=https://www.nexusmods.com/cyberpunk2077/mods/12369]Balanced Nighttime Cycle[/url][/b] (Respects new cycle timings)
-[*][b][url=https://www.nexusmods.com/cyberpunk2077/mods/18027]Weather Switcher[/url][/b] (Great for locking weather before a shot)
-[*][b][url=https://www.nexusmods.com/cyberpunk2077/mods/12490]Nova City 2[/url][/b]
+[list]
+[*][b][url=https://www.nexusmods.com/cyberpunk2077/mods/12369]Balanced Nighttime Cycle[/url][/b] (Respects new cycle timings)[/*]
+[*][b][url=https://www.nexusmods.com/cyberpunk2077/mods/18027]Weather Switcher[/url][/b] (Great for locking weather before a shot)[/*]
+[*][b][url=https://www.nexusmods.com/cyberpunk2077/mods/12490]Nova City 2[/url][/b][/*]
 [/list]
 [line]
 [size=5][b][color=#ffff00]Known issues[/color][/b][/size]
 
-[list][*]Vehicles are hard-coded to ignore time dilation in the physics engine. In simulation mode, nearby vehicles will run at the default speed (1x) unless Traffic Frenzy is enabled.
-[*]Traffic Frenzy is experimental. Cars may corner aggressively, briefly stop, or behave unusually at higher multipliers.
+[list]
+[*]Vehicles are hard-coded to ignore time dilation in the physics engine. In Simulation Mode nearby vehicles run at normal speed unless Traffic Frenzy is on.[/*]
+[*]Traffic Frenzy is experimental. Cars may corner aggressively, briefly stop, or behave unusually at higher multipliers.[/*]
+[*]Camera Shake applies to a static camera. A free fly camera is driven by XUtils every frame, so a shake laid over it would not survive the frame.[/*]
+[*]Simulation Mode cannot exceed 10x. The engine caps it there whatever it is asked for.[/*]
 [/list]
 [line]
 [size=5][b][color=#ffff00]Installation[/color][/b][/size]
 
 [list=1]
-[*] Install [url=https://www.nexusmods.com/cyberpunk2077/mods/107]Cyber Engine Tweaks[/url].
-[*]Download and install with a mod manager or
-[*] Download and extract the zip file.
-[*] Drop the [b]bin[/b] folder into your Cyberpunk 2077 directory.
-[font=Courier New]Cyberpunk 2077\bin\x64\plugins\cyber_engine_tweaks\mods\simple_timelapse\[/font]
+[*]Install [url=https://www.nexusmods.com/cyberpunk2077/mods/107]Cyber Engine Tweaks[/url], [url=https://www.nexusmods.com/cyberpunk2077/mods/26589]Window Utils[/url] and [url=https://www.nexusmods.com/cyberpunk2077/mods/7780]Codeware[/url].[/*]
+[*]Download and install with a mod manager, or[/*]
+[*]Download and extract the zip file.[/*]
+[*]Drop the [b]bin[/b] folder into your Cyberpunk 2077 directory.
+[font=Courier New]Cyberpunk 2077\bin\x64\plugins\cyber_engine_tweaks\mods\simple_timelapse\[/font][/*]
 [/list]
 [line]
 [size=5][b][color=#ffff00]Credits[/color][/b][/size]
 
 [list]
-[*] [b]Mokuppo[/b] for the HUD toggling logic used in [url=https://www.nexusmods.com/cyberpunk2077/mods/9311]SimpleToggleHUD[/url]. Used with permission.
-[*] [b]psiberx[/b] for the [url=https://github.com/psiberx/cp2077-cet-kit]CP2077 CET Kit[/url]
-[*] [b]Yamashi[/b] and the CET Team.
+[*][b]Mokuppo[/b] for the HUD toggling logic used in [url=https://www.nexusmods.com/cyberpunk2077/mods/9311]SimpleToggleHUD[/url]. Used with permission.[/*]
+[*][b]psiberx[/b] for the [url=https://github.com/psiberx/cp2077-cet-kit]CP2077 CET Kit[/url] and Codeware.[/*]
+[*][b]CyanideX[/b] for [url=https://www.nexusmods.com/cyberpunk2077/mods/26589]Window Utils[/url] and [url=https://www.nexusmods.com/cyberpunk2077/mods/30296]XUtils[/url].[/*]
+[*][b]Yamashi[/b] and the CET Team.[/*]
 [/list]

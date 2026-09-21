@@ -1,6 +1,6 @@
 # Simple Time-lapse (Timelapse Time Lapse) - Time Dilation and HUD Toggle — Nexus Changelogs
 
-### [Unreleased - v2.0.0]
+### 2.0.0
 - New: A Camera section in Cinema, separate from the lens. A moving shot no longer costs you depth of field, and depth of field turns the camera on when you need it
 - New: Camera Shake for a static camera, with the seventeen recipes XUtils ships (handheld, sway, subtle, cinematic and the rest) and a strength slider
 - New: A free fly run takes the XUtils camera keys - Q and E roll, the wheel sets speed, Ctrl is precision, and holding R, F or X with the wheel sets roll, field of view or look sensitivity. They are your own XUtils bindings, so rebinding them under XUtils, FreeFly Keys, in Mod Settings works here too
